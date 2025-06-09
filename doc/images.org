@@ -1,0 +1,102 @@
+#+TITLE: Pre-parsed Image Format
+
+Block files and storage blocks both store source code in a pre-parsed
+binary format.  This is in contrast to text files and standard input
+that expect control-code tags.
+
+Images are more convenient than files when working with devices or
+virtual machines.  We can edit an image online or offline and we can
+load an image directly.
+
+The pre-parsed format extends the use of role tags to eliminate most
+scanning, yielding faster compilation.  The integrated block editor
+saves source in the pre-parsed format.
+
+Within an image each source block stands alone not requiring any
+context.  A source block is simply a sequence of tagged
+items--described below--terminated by a zero word.
+
+Use the [[file:editor.org][block editor]] to edit image files.
+
+
+* Items
+
+An item consists of a 32-bit word-aligned tag, a length, and "length"
+bytes of data.  The supported tags are a superset of the tags
+recognized by the text parser.
+
+| Tag | Color   | Role     | Description                                  |
+|-----+---------+----------+----------------------------------------------|
+| $00 | Black   | Data     | 8-bit clean strings                          |
+| $10 | Red     | Label    | Define an entrypoint and a dictionary header |
+| $20 | Green   | Compile  | Extend the current dictionary entry          |
+| $30 | Yellow  | Execute  | Interpret at load time                       |
+| $40 | Blue    | Format   | Describe layout for the editor               |
+| $50 | Magenta | Retain   | Pesist value of variable (_not implemented_) |
+| $60 | Cyan    | Postpone | Compile a macro definition                   |
+| $70 | White   | Comment  | Ignored                                      |
+
+The additional tags either represent binary data or convey extra
+information to the editor.
+
+| Tag | Color          | Role     | Description                            |
+|-----+----------------+----------+----------------------------------------|
+| $80 | Bright black   | Data     | Display and edit string as hexadecimal |
+| $90 | Bright red     | Label    | Display without a linebreak            |
+| $a0 | Bright green   | Compile  | Compile a pre-parsed number            |
+| $b0 | Bright yellow  | Execute  | Intepret a pre-parsed number           |
+| $c0 | Bright blue    |          | Not used                               |
+| $d0 | Bright magenta |          | Not used                               |
+| $e0 | Bright cyan    | Postpone | Postpone a pre-parsed number           |
+| $f0 | Bright white   | Comment  | May be used for compiler feedback      |
+
+The length may be encoded in the lower 4-bits of the tag byte.
+
+[[file:huffman.org][Huffman-encoded]] words (red, green, yellow, magenta, and cyan) never
+exceed 12-bytes, and the 4-bit length includes the tag
+byte.footnote:[This is because the length is included in the
+dictionary header and matched as part of a lookup.]  Format words
+(blue) are always one control code and use those bits for a simple
+run-length encoding.
+
+Data words (black, white) may exceed 15-bytes.  In that case the lower
+4-bits of the tag byte will be zero and the length starts with the
+next byte.  We can encode a length of 127 or less directly in the next
+byte, but a length of 128 or greater will set the sign-bit and use the
+remaining bits to encode the number of big-endian length
+bytes.footnote:[As in ASN.1] The designated number of 8-bit bytes will
+follow the length.  The tag and length bytes are not counted in the
+length.
+
+Pre-parsed numbers are stored unsigned, native-endian.  Lengths of 2,
+4, or 8 bytes are supported.[fn::One-byte values are pointless as they
+save no space.]  Smaller values have the expected alignment, but
+8-byte values require only 4-bit alignment.
+
+Comments are [[https://en.wikipedia.org/wiki/Lempel%E2%80%93Ziv%E2%80%93Welch][LZW]] compressed.  ASCII characters are represented in
+7-bits.  The code $80 clears the dictionary and $81 is the stop code.
+Other 8-bit codes represent dictionary entries.  We do not exceed
+8-bits and the maximum dictionary code is $ff.  Unless the encoder
+emits a $80 clear code, all comments in a block are compressed using
+the same dictionary.
+
+
+* Usage
+
+At runtime the binary parser reads the pre-parsed words directly from
+the image.  For most words this means reading "length" bytes directly
+into the word buffer without needing to examine the individual
+characters.  Of course black, blue, and white words are skipped simply
+by incrementing the input pointer.
+
+For pre-parsed numbers, we load the value directly without parsing the
+number and importantly without running the number through `find` to
+see if it matches a word.  This is a considerable savings.
+
+Pre-parsed strings can be used in-place or moved directly to their
+destination.
+
+Parsing stops at a zero word or a blue formfeed, and does not continue
+into the next block.  The formfeed separates the source code of a
+block from its shadow, allowing the shadow to use tags to colorize
+comments.

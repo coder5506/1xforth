@@ -1,0 +1,101 @@
+áCopyright 2022,2023 Eric Sessoms / MIT License
+
+Å2drop Çnip drop ;
+Å2dup Çover over ;
+Å2nip Çpush nip nip pop ;
+Émacro Å2r@ Ü2pop 2dup 2push Ç; Éforth
+Årot Çpush swap pop swap ;
+Å2swap Çrot push rot pop ;
+
+áaddr1 u1 n Å/string áaddr2 u2 Çover min tuck - swap u+ ;
+áAdvance string
+
+áaddr Å<cstring áaddr u Çdup
+áaddr Åstrlen áu Çdup Åloop Çdup c@ drop 0if swap- ; then 1+ loop ;
+áFind length of NUL-terminated string
+
+áaddr u Åstr, Çhere swap move ;
+áaddr u Åzstr, Çstr, 0 c, ;
+áaddr u Å>cstring áaddr'
+   Ç2dup + c@ drop 0if drop ; then here push zstr, pop ;
+
+áaddr u Å>zstring áaddr Çover + 0 swap c! ;
+áDestructively ensure string has NUL-terminator
+
+Å>lower Çdup $41 $5b within drop if $20 xor then ;
+Åstr/head Çif over c@ ; then -1 ;
+Åstr/tail Ç1 /string ;
+Åstr/next Çstr/head push str/tail pop ;
+áaddr1 u1 addr2 u2 Åstrcasecmp án
+   Çstr/next push 2swap str/next push 2swap
+   pop >lower pop >lower
+   over over and drop -if drop drop 2drop 2drop 0 ; then
+   áNote that subtracting the two characters is valid if either
+   is eof.
+      á-1 -  c <  0 lhs is shorter so sorts before
+       ác - -1 >  0 rhs is shorter so sorts before
+   Ç- if push 2drop 2drop pop ; then drop strcasecmp ;
+
+áaddr1 u1 addr2 u2 Åstrcmp án Çcompare ;
+áaddr1 u1 addr2 u2 Åstr= áf Çstrcmp 0= ;
+
+ásrc-addr src-u dst-addr dst-u Åstrcat ádst-addr u'
+áAppend SRC at end of DST
+   Ç2dup 2push + swap dup "r + "r! move 2pop ;
+
+Émacro
+Åforeach Üswap "a! for [ c@ ++ ] Ç;
+Ådone Ünext "a 0 Ç;
+Åfound Ü"a 1- pop 1+ ; Ç;
+Éforth
+Å<ab> Ç"a push "b push execute pop "b! pop "a! ;
+
+Å(strchr) Ç"b! foreach "b = drop if found ; then done ;
+áaddr1 u1 c Åstrchr áaddr2 u2 É' (strchr) Ç<ab> ;
+áAdvance string to first occurrence of byte C
+
+áaddr1 u Åstrdup áaddr2 u Çhere over 2swap str, ;
+
+Åstrchr' Çstrchr nip ;
+Å(strpbrk) Ç2swap foreach push 2dup pop
+   strchr' drop if 2drop found ; then done ;
+áaddr1 u1 addr2 u2 Åstrpbrk áaddr3 u3 É' (strpbrk) Ç<ab> ;
+áAdvance str1 to first occurrence of any byte from str2
+
+áaddr1 u1 addr2 u2 Åstrcspn áu Ç2push tuck 2pop strpbrk nip - ;
+áNumber of bytes of str1 spanned by complement of str2
+
+áaddr1 u1 addr2 u2 Åstrsep áaddr3 u3 addr4 u4
+áSplit str1 at first occurrence of any byte of str2
+   Ç2push 2dup 2pop strpbrk dup push 2swap pop - ;
+
+Å(strspn) Ç2swap foreach push 2dup pop
+   strchr' drop 0if 2drop found ; then done ;
+áaddr1 u1 addr2 u2 Åstrspn áu
+áNumber of bytes of str1 spanned by bytes from str2
+   Ç2push tuck 2pop É' (strspn) Ç<ab> nip - ;
+
+áaddr1 u1 addr2 u2 Åstartswith? áf
+   Ç2push dup "r < drop if 2drop 2pop 2drop 0 ; then
+   "r min 2pop str= ;
+áaddr1 u1 addr2 u2 Åstrstr áaddr3 u3
+   Ç2push Åloop Çdup if drop 2dup 2r@ startswith? 0= then
+   drop 0if 2pop 2drop ; then 1 /string loop ;
+
+Å(y/n) Çdrop if " yes" ; then " no" ; Åy/n Ç(y/n) type cr ;
+Åabcde Ç" abcde" ;
+Åt1 Çabcde $63 strchr abcde 2 /string str= y/n ;
+Åt2 Çabcde >cstring <cstring abcde str= y/n ;
+Åt3 Çabcde strdup >zstring <cstring abcde str= y/n ;
+Åt4 Çabcde " ABCDE" strcasecmp 0= y/n ;
+Åt5 Çabcde " XYZ" strcasecmp 0< y/n ;
+Åt6 Çabcde " xyz" strpbrk " " str= y/n ;
+Åt7 Çabcde " abc" strspn 3 = y/n ;
+Åt8 Çabcde " cde" strcspn 2 = y/n ;
+Åt9 Çabcde " cde" strsep " ab" str= y/n " cde" str= y/n ;
+Åta Çabcde " aei" strsep " " str= y/n abcde str= y/n ;
+Åtb Ç" fghi" abcde strdup strcat " abcdefghi" str= y/n ;
+Åtc Çabcde " cd" strstr " cde" str= y/n ;
+Åtd Çabcde >cstring strlen 5 = y/n ;
+Åtests Çt1 t2 t3 t4 t5 t6 t7 t8 t9 ta tb tc td ;
+átests

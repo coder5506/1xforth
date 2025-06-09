@@ -1,0 +1,1 @@
+CMDLINE: mtdparts=rk3566:0x000380000@0x00008000(boot:bootable)

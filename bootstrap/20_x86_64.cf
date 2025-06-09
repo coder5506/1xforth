@@ -1,0 +1,307 @@
+áCopyright 2022,2023 Eric Sessoms / MIT License
+
+áMinimal x86-64 assembler
+á========================
+
+áRegister names
+Årax Ç$0 ; År8  Ç$8 ;
+Årcx Ç$1 ; År9  Ç$9 ;
+Årdx Ç$2 ; År10 Ç$a ;
+Årbx Ç$3 ; År11 Ç$b ;
+Årsp Ç$4 ; År12 Ç$c ;
+Årbp Ç$5 ; År13 Ç$d ;
+Årsi Ç$6 ; År14 Ç$e ;
+Årdi Ç$7 ; År15 Ç$f ;
+
+áRegister aliases
+Åsp Érbp Ç; áParameter stack pointer
+Årp Érsp Ç; áReturn stack pointer
+
+áSystem registers
+Åt Érbx Ç; áTop-of-stack
+Åu Ér14 Ç; áUser pointer
+
+áInstruction state
+Årex    É0 value
+Åmodr/m É0 value Åmodr/m? É0 value
+Åsib    É0 value Åsib?    É0 value
+Ådisp   É0 value Å#disp   É0 value
+Åimm    É0 value Å#imm    É0 value
+Åsize  É64 value
+
+Åclear áReset instruction state
+   Ç0 to rex                 áNo rex prefx
+   Ç0 to modr/m 0 to modr/m? áNo modr/m byte
+   Ç0 to sib    0 to sib?    áNo sib byte
+   Ç0 to disp   0 to #disp   áNo displacement bytes
+   Ç0 to imm    0 to #imm    áNo immediate bytes
+  Ç64 to size ;              á64-bit operand size
+
+áAssembler
+Åb, Çdup c, 8 rshift ;
+áu n Åbytes, Ç0if drop drop ; then swap b, swap 1- bytes, ;
+
+Å?rex, Çrex if $40 or c, ; then drop ;
+Å?modr/m, Çmodr/m? drop if modr/m c, then ;
+Å?sib, Çsib? drop if sib c, then ;
+Å?disp, Ç#disp if disp swap bytes, ; then drop ;
+Å?imm, Ç#imm if imm swap bytes, ; then drop ;
+
+Å?prefix, Ç?rex, ;
+Å?suffix, Ç?modr/m, ?sib, ?disp, ?imm, ;
+
+áopcode bytes Åemit, Ç?prefix, bytes, ?suffix, clear ;
+áopcode Å1emit, Ç1 emit, ;
+áopcode Å2emit, Ç2 emit, ;
+
+ábits Årex-or! Çrex or to rex ;
+Årex.w! Ç8 rex-or! ; á64-bit operand size
+Årex.r! Ç4 rex-or! ; áExtends modr/m reg field
+Årex.x! Ç2 rex-or! ; áExtends sib index field
+Årex.b! Ç1 rex-or! ;
+áExtends modr/m r/m field, sib base field, or opcode reg field
+
+Å?rex.w Çsize 64 = drop if rex.w! then ;
+
+án Å4/mod áq r Çdup 2/ 2/ swap 3 and ;
+án Å8/mod áq r Çdup 8/    swap 7 and ;
+
+ábits Åmodr/m-or! Çmodr/m or to modr/m -1 to modr/m? ;
+áu Åmod! Ç4/mod 8* 8* modr/m-or! drop ;
+áu Åreg! Ç8/mod    8* modr/m-or! drop if rex.r! then ;
+áu År/m! Ç8/mod       modr/m-or! drop if rex.b! then ;
+
+Å/0 Ç0 reg! ;
+Å/5 Ç5 reg! ;
+
+ábits Åsib-or! Çsib or to sib -1 to sib? ;
+áu Åindex! Ç8/mod 8* sib-or! drop if rex.x! then ;
+áu Åbase!  Ç8/mod    sib-or! drop if rex.b! then ;
+
+án Ådisp8 Çto disp 1 to #disp ;
+án Åimm8 Çto imm 1 to #imm ;
+
+Å.d Ç64 to size ; Ådword? Ç64 size = ; á64-bit doubleword
+Å.w Ç32 to size ; Åword?  Ç32 size = ; á32-bit word
+Å.h Ç16 to size ; Åhword? Ç16 size = ; á16-bit halfword
+Å.b  Ç8 to size ; Åbyte?   Ç8 size = ;  á8-bit byte
+
+Åindirect Ç$20 ; áRegister-indirect addressing
+áreg Å) áreg' Éindirect Çor ;
+áreg Åindirect? áf Éindirect Çand 0<> ;
+
+Åsp? Ç7 and 4 = ; áRSP or R12
+Åbp? Ç7 and 5 = ; áRBP or R13
+
+áreg Åsp/indirect! Çbase! Érsp Çindex! 0 mod! Érsp Çr/m! ;
+áreg Åbp/indirect! Çr/m! 1 mod! 0 disp8 ;
+áreg Åindirect!
+   Ç$f and
+   dup sp? drop if sp/indirect! ; then
+   dup bp? drop if bp/indirect! ; then
+   r/m! 0 mod! ;
+
+áreg Ådirect! Çr/m! 3 mod! ;
+
+áreg År/m64! Çdup indirect? drop if indirect! ; then direct! ;
+áreg År64! Çreg! ;
+áreg År/m32! Çr/m64! ;
+áreg År32! Çr64! ;
+
+Å(r>r/m)
+   Çdword? drop if rex.w! $89 ; then
+   word?  drop if        $89 ; then
+   hword? drop if $66 c, $89 ; then $88 ;
+ásrc dst År64>r/m64, Çr/m64! r64! (r>r/m) 1emit, ;
+
+Å(r/m>r)
+   Çdword? drop if rex.w! $8b ; then
+   word?  drop if        $8b ; then
+   hword? drop if $66 c, $8b ; then $8a ;
+ásrc dst År/m64>r64, Çr64! r/m64! (r/m>r) 1emit, ;
+
+ásrc dst Åmov,
+   Çover indirect? drop if r/m64>r64, ; then r64>r/m64, ;
+
+ásrc dst Åmovsx,
+   Çr64! r/m32! rex.w!
+   hword? drop if $bf0f 2emit, ; then $be0f 2emit, ;
+
+ásrc dst Åmovsxd, Çr64! r/m32! rex.w! $63 1emit, ;
+
+ásrc dst Åmovzx,
+   Çr32! r/m32!
+   hword? drop if $b70f 2emit, ; then $b60f 2emit, ;
+
+ádst Åpop,  Ç8/mod swap drop if rex.b! then $58 + 1emit, ;
+ásrc Åpush, Ç8/mod swap drop if rex.b! then $50 + 1emit, ;
+
+Åsyscall, Ç$050f 2emit, ;
+
+ásrc dst Åadd, Çr/m64! imm8 ?rex.w /0 $83 1emit, ;
+ásrc dst Åsub, Çr/m64! imm8 ?rex.w /5 $83 1emit, ;
+
+Ånip,  Ç8 Ésp Çadd, ;
+Ådrop, Ésp ) Çt mov, nip, ;
+
+Åint3, Ç$cc c, ;
+Émacro Åbreak Çint3, ; Éforth
+
+áx86-64 system call infrastructure
+á---------------------------------
+ádst Å>reg,
+   Ét Çswap mov,
+   Ésp ) Çrbx mov,
+   8 Ésp Çadd, ;
+
+Årestore, Ér11 Çpop,  Ér10 Çpop,  Ér9  Çpop,  Ér8  Çpop, ;
+Åsave,    Ér8  Çpush, Ér9  Çpush, Ér10 Çpush, Ér11 Çpush, ;
+Å(syscall),
+   Érbp Çpush,
+   Érsp Çrbp mov,
+   syscall,
+   Érbp Çrsp mov,
+   Érbp Çpop,
+   8 Ésp Çsub,
+   t Ésp ) Çmov,
+   Érax Çt mov, ;
+
+Å6/args Ér9  Ç>reg,
+Å5/args Ér8  Ç>reg,
+Å4/args Ér10 Ç>reg,
+Å3/args Érdx Ç>reg,
+Å2/args Érsi Ç>reg,
+Å1/args Érdi Ç>reg, (syscall), ;
+
+Émacro
+Åsyscall Érax Ç>reg, save, ' execute restore, ;
+Éforth
+
+Å6/syscall Çsyscall 6/args ;
+Å5/syscall Çsyscall 5/args ;
+Å4/syscall Çsyscall 4/args ;
+Å3/syscall Çsyscall 3/args ;
+Å2/syscall Çsyscall 2/args ;
+Å1/syscall Çsyscall 1/args ;
+
+
+áCompile register words
+á======================
+
+áGeneral-purpose registers
+Åw Ér13 Ç;
+Åx Ér12 Ç;
+Åy Ér11 Ç;
+Åz Ér10 Ç;
+Åa Ér9  Ç; áDefault address register
+Åb Ér8  Ç;
+
+áInstruction state
+Åincr É0 value áAutoincrement
+Åop   É0 value áOperation
+Åreg  Éa value áRegister
+Åsign É0 value áSign extension
+Åsize É8 value áOperand bytes
+
+Åclear áReset instruction state
+   Ç0 to incr   áNo autoincrement
+   Ç0 to op     áNot compiling
+   Ça to reg    áDefault address register
+   Ç0 to sign   áZero-extend
+   Ç8 to size ; á64-bit operand size
+
+áDefault 0 not compiling
+Åstore Ç1 to op ;
+Åfetch Ç2 to op ;
+
+Émacro
+áDefault 0 no autoincrement
+Å-- Ç1 to incr ; áPre-decrement
+Å++ Ç2 to incr ; áPost-increment
+Å[ Çstore ; áBegin compiling register operation
+Éforth
+
+Åcompiling? áf Çop 0<> ;
+ár Åpseudo? áf Çindirect? ;
+
+ár Å?pseudo ár' Çdup pseudo? drop if rax mov, rax then ;
+áCompile pseudo-register by copying to scratch
+
+Åpush-param,
+   Ç8 Ésp Çsub,
+   t Ésp ) Çmov,
+   Ét Çmov, ;
+Åregister
+   Çcompiling? drop if to reg ; then ?pseudo push-param, ;
+
+Émacro
+Å"r Érp ) Çregister ; áTop of return stack
+Å"s Ésp ) Çregister ; áSecond-on-stack
+Å"t Ét    Çregister ; áTop-of-stack
+Å"u Éu    Çregister ; áUser pointer
+Å"w Éw Çregister ; Å"a Éa Çregister ;
+Å"x Éx Çregister ; Å"b Éb Çregister ;
+Å"y Éy Çregister ;
+Å"z Éz Çregister ;
+
+Åzx Ç0 to sign ; áZero-extend, default
+Åsx Ç1 to sign ; áSign-extend
+Éforth
+
+Åa-size Ç8 to size ; Ådword? áf Çsize 8 = ; á64-bit cell, default
+Åw-size Ç4 to size ; Åword?  áf Çsize 4 = ; á32-bit word
+Åh-size Ç2 to size ; Åhword? áf Çsize 2 = ; á16-bit halfword
+Åc-size Ç1 to size ; Åbyte?  áf Çsize 1 = ;  á8-bit char
+
+Å.size áMap operation bytes to instruction bits
+   Çdword? drop if .d ; then
+   word?  drop if .w ; then
+   hword? drop if .h ; then .b ;
+Å(store) áCompile store operation
+   Çcompiling? drop if store ; then
+   Ésp ) Çrax mov, nip,
+   Ç.size rax Ét ) Çmov, drop, clear ;
+
+Åzx, áLoad value with zero-extension
+   Çdword? word? or drop if mov, ; then movzx, ;
+Å(fetch) áCompile fetch operation
+   Çcompiling? drop if fetch ; then .size Ét ) Çt zx, clear ;
+
+Émacro
+ Å! Ça-size (store) ;  Å@ Ça-size (fetch) ;
+Åw! Çw-size (store) ; Åw@ Çw-size (fetch) ;
+Åh! Çh-size (store) ; Åh@ Çh-size (fetch) ;
+Åc! Çc-size (store) ; Åc@ Çc-size (fetch) ;
+Éforth
+
+Åpre-decrement?  áf Çincr 1 = ;
+Åpost-increment? áf Çincr 2 = ;
+
+Å?pre-decrement,  Çpre-decrement?  drop if size reg sub, then ;
+Å?post-increment, Çpost-increment? drop if size reg add, then ;
+Åload, Çreg Érax Çmov, ;
+
+Å(fetch) Ç.size Érax É) Çt ;
+Åsx, áLoad value with sign-extension
+   Çdword? drop if mov,    ; then
+   word?  drop if movsxd, ; then movsx, ;
+Åzx|sx, Ç(fetch) sign drop if sx, ; then zx, ;
+Åfetch,
+   Ç8 Ésp Çsub,
+   t Ésp ) Çmov,
+   zx|sx, ;
+Åstore, Ç.size t Érax ) Çmov, drop, ;
+Åfetch? áf Çop 2 = ;
+Åfetch|store, Çfetch? drop if fetch, ; then store, ;
+
+Émacro
+Å] Ç?pre-decrement, load, ?post-increment, fetch|store, clear ;
+Å"r! Érp ) Ç>reg, ;
+á"s! is nip
+á"t! is drop
+Å"u! Éu Ç>reg, ; áIf you dare
+Å"w! Éw Ç>reg, ; Å"a! Éa Ç>reg, ;
+Å"x! Éx Ç>reg, ; Å"b! Éb Ç>reg, ;
+Å"y! Éy Ç>reg, ;
+Å"z! Éz Ç>reg, ;
+Éforth

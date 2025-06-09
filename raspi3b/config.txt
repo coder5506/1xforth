@@ -1,0 +1,3 @@
+# Minimum functional GPU memory allocation.  Allows use of
+# cut-down firmware start_cd.elf and fixup_cd.dat.
+gpu_mem=16

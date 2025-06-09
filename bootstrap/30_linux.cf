@@ -1,0 +1,56 @@
+‡Copyright 2022,2023 Eric Sessoms / MIT License
+
+at_fdcwd ‚-100 ;
+map_anon ‚$20 ;
+ms_sync ‚4 ;
+
+‡Terminal support
+
+‡ioctl_tty(2) ‡terminal ioctls
+tcgets     ‚$5401 ; ‡Get current serial port settings
+tcsets     ‚$5402 ; ‡Set current serial port settings
+tiocgwinsz ‚$5413 ; ‡Get window size
+
+‡Types used in termios structure
+cc_t     ‚1 ; ‡unsigned char
+speed_t  ‚4 ; ‡unsigned int
+tcflag_t ‚4 ; ‡unsigned int
+
+nccs    ‚19 ; ‡Number of control characters
+
+‡Layout of termios structure
+c_iflag+ ‚0 ;                   ‡Input mode flags
+c_oflag+ ƒc_iflag+ tcflag_t + ‚; ‡Output mode flags
+c_cflag+ ƒc_oflag+ tcflag_t + ‚; ‡Control mode flags
+c_lflag+ ƒc_cflag+ tcflag_t + ‚; ‡Local mode flags
+c_line+  ƒc_lflag+ tcflag_t + ‚; ‡Line discipline
+c_cc+    ƒc_line+ cc_t + ‚;      ‡Control characters
+/termios ƒc_cc+ nccs + ‚;        ‡Size of termios structure
+
+‡termios(3)
+
+‡Input mode flags
+ƒ8 base !
+brkint ‚0000002 ; ‡Break sends sigint
+inpck  ‚0000020 ; ‡Enable input parity checking
+istrip ‚0000040 ; ‡Strip off eighth bit
+icrnl  ‚0000400 ; ‡Translate carriage return to newline
+ixon   ‚0002000 ; ‡Enable xon/xoff flow control on output
+
+‡Output mode flags
+opost  ‚0000001 ; ‡Implementation-defined output processing
+
+‡Local mode flags
+isig   ‚0000001 ; ‡Signals for intr, quit, susp, or dsusp
+icanon ‚0000002 ; ‡Enable canonical mode
+echo   ‚0000010 ; ‡Echo input characters
+iexten ‚0100000 ; ‡Implementation-defined input processing
+
+‡Control mode flags
+csize  ‚0000060 ; ‡Character size mask
+cs8    ‚0000060 ; ‡8-bit characters
+
+‡Control characters
+ƒdecimal
+vtime ‚5 ; ‡Timeout in deciseconds for noncanonical read
+vmin  ‚6 ; ‡Minimum characters for noncanonical read

@@ -1,0 +1,96 @@
+‡Copyright 2022,2023 Eric Sessoms / MIT License
+
+w@/be ‚w@ 4bswap ; ‡Fetch big-endian word
+
+‡Flattened Devicetree Header
+dtb/root ƒ0 value ‡Current devicetree
+off_dt_struct  ‚$8 field@ ‚dtb/root + w@/be ;
+‡Offset to structure block
+off_dt_strings ‚$c field@ ; ‡Offset to strings block
+
+‡Strings Block
+dtb/strings ‚dtb/root off_dt_strings + ;
+‡off off>string ‡addr u ‚dtb/strings + <cstring ;
+‡Lookup string by offset from start of block
+
+‡Structure Block
+dtb/structure ‚dtb/root off_dt_struct + ;
+dtb/cursor ƒ0 value ‡Pointer to current structure node
+dtb/root! ‚to dtb/root dtb/structure dtb/cursor! ‚to dtb/cursor ;
+‡Setting DTB root also initializes cursor
+tag@ ‚dtb/cursor if w@/be then ; ‡Type token of current node
+?cursor ‚dtb/cursor drop 0if pop drop then ;
+‡Guard against working with a NULL cursor
+
+ƒmacro
+dtb/push †dtb/cursor push ‚; ‡Save pointer to current node
+dtb/pop †pop dtb/cursor! ‚; ‡Restore pointer to earlier node
+ƒforth
+
+‡Token types
+tag= ‚tag@ = ; >node ‚dtb/cursor 4 + ;
+?begin-node ‚1 tag= ; ‡Followed by NUL-terminated name string
+?end-node   ‚2 tag= ; ‡No extra data
+?prop       ‚3 tag= ; ‡Followed by header and property data
+?nop        ‚4 tag= ; ‡Used to overwrite unused data
+begin-node? ‚1 = ; end-node? ‚2 = ;
+node-name ‚>node <cstring ; ‡Name of Begin node
+
+‡Property node
+>len     ‚>node 0 + ; ‡Length in bytes of property data
+>nameoff ‚>node 4 + ; ‡Offset to name in string table
+>data    ‚>node 8 + ; ‡Offset to beginning of property data
+len@ ‚>len w@/be ;
+prop-name ‚>nameoff w@/be off>string ; ‡Name of property
+
+skip-empty ‚>node ; ‡Skip over empty node
+skip-begin ‚>node loop ‚dup 1+ swap c@ drop 0if ; then loop ;
+‡Skip over begin node
+skip-prop ‚>data len@ + ; ‡Skip over property node
+step-into
+   ‚?begin-node drop if skip-begin ; then
+   ?end-node   drop if skip-empty ; then
+   ?prop       drop if skip-prop  ; then
+   ?nop        drop if skip-empty ; then  0 ;
+(step) ‚step-into 4aligned ‚3 + -4 and ;
+dtb/step ‡Move to start of next physical node
+‡Descends into structures, aka "step into"
+   ‚?cursor (step) dtb/cursor! ;
+
+stepped ‚tag@ dtb/step ; ‡Return tag of node stepped over
+[next] ‚stepped dup end-node? drop if drop ; then
+   begin-node? drop if [next] then [next] ;
+dtb/next ‡Move to start of next logical node
+‡Steps over structures
+   ‚stepped begin-node? drop if [next] then ;
+
+prop-named? ‚over over prop-name str= ‚compare 0= ;
+(prop) ‚?end-node drop if 0 ; then
+   ?prop if drop prop-named? then  drop if ; then
+   dtb/next (prop) ;
+‡addr u >dtb/prop ‚dtb/step ?cursor (prop) drop drop ;
+‡Find named property node
+
+‡addr u dtb/prop ‡node ƒ' >dtb/prop ‚nop ‡Find named property node
+(peek) ‚dtb/push execute dtb/cursor dtb/pop ;
+‡aka, save-excursion
+
+node-named? ‚over over node-name str= ;
+(child) ‚?end-node drop if ; then
+   ?begin-node if drop node-named? then  drop if ; then
+   dtb/next (child) ;
+‡addr u >dtb/child ‚dtb/step ?cursor (child) drop drop ;
+‡Descend into named child node
+
+‡addr u dtb/child ‡node ƒ' >dtb/child ‚(peek) ;
+‡Find named child node
+
+ƒ" quartz64a/rk3566-quartz64-a.dtb" map-file/ro drop dtb/root!
+‡Use Quartz DTB for testing
+
+stdout-path
+   ‚dtb/push
+      " chosen" >dtb/child " stdout-path" >dtb/prop
+      >data len@
+   dtb/pop ;
+ƒstdout-path type cr

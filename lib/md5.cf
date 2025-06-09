@@ -1,0 +1,192 @@
+áCopyright 2022,2023 Eric Sessoms / MIT License
+
+Å[k]  Écreate
+   $d76aa478 , $e8c7b756 , $242070db , $c1bdceee ,
+   $f57c0faf , $4787c62a , $a8304613 , $fd469501 ,
+   $698098d8 , $8b44f7af , $ffff5bb1 , $895cd7be ,
+   $6b901122 , $fd987193 , $a679438e , $49b40821 ,
+   $f61e2562 , $c040b340 , $265e5a51 , $e9b6c7aa ,
+   $d62f105d , $02441453 , $d8a1e681 , $e7d3fbc8 ,
+   $21e1cde6 , $c33707d6 , $f4d50d87 , $455a14ed ,
+   $a9e3e905 , $fcefa3f8 , $676f02d9 , $8d2a4c8a ,
+   $fffa3942 , $8771f681 , $6d9d6122 , $fde5380c ,
+   $a4beea44 , $4bdecfa9 , $f6bb4b60 , $bebfbc70 ,
+   $289b7ec6 , $eaa127fa , $d4ef3085 , $04881d05 ,
+   $d9d4d039 , $e6db99e5 , $1fa27cf8 , $c4ac5665 ,
+   $f4292244 , $432aff97 , $ab9423a7 , $fc93a039 ,
+   $655b59c3 , $8f0ccc92 , $ffeff47d , $85845dd1 ,
+   $6fa87e4f , $fe2ce6e0 , $a3014314 , $4e0811a1 ,
+   $f7537e82 , $bd3af235 , $2ad7d2bb , $eb86d391 ,
+ái Åk  Ç8* É[k] Ç+ @ ;  áfloor(2^32*abs(sin(i+1))
+
+Å[s]  Écreate
+   7 c, 12 c, 17 c, 22 c,
+   7 c, 12 c, 17 c, 22 c,
+   7 c, 12 c, 17 c, 22 c,
+   7 c, 12 c, 17 c, 22 c,
+   5 c,  9 c, 14 c, 20 c,
+   5 c,  9 c, 14 c, 20 c,
+   5 c,  9 c, 14 c, 20 c,
+   5 c,  9 c, 14 c, 20 c,
+   4 c, 11 c, 16 c, 23 c,
+   4 c, 11 c, 16 c, 23 c,
+   4 c, 11 c, 16 c, 23 c,
+   4 c, 11 c, 16 c, 23 c,
+   6 c, 10 c, 15 c, 21 c,
+   6 c, 10 c, 15 c, 21 c,
+   6 c, 10 c, 15 c, 21 c,
+   6 c, 10 c, 15 c, 21 c,
+ái Ås áshift  É[s] Ç+ c@ ;
+
+Åf á(b&c)|(~b&d)  Ç"x "y and  "x invert "z and  or ;
+Åg á(b&d)|(c&~d)  Ç"x "z and  "y "z invert and  or ;
+Åh áb^c^d         Ç"x "y xor "z xor ;
+Åi ác^(b|~d)      Ç"x "z invert or  "y xor ;
+
+át Å[32-bit] át'  É$ffffffff Çand ;
+át s Årol át'
+   Çpush [32-bit] pop
+   over over lshift push
+   32 swap- rshift
+   pop or ;
+
+Åm  Écreate 64 allot
+Åused   É0 variable
+Åtotal  É0 variable
+
+Åa  É0 variable
+Åb  É0 variable
+Åc  É0 variable
+Åd  É0 variable
+
+Åinit
+   Ç$67452301 a !
+   $efcdab89 b !
+   $98badcfe c !
+   $10325476 d !
+   0 used  !
+   0 total ! ;
+
+áf Åeval át  Çexecute "w + ;
+ái f g Åcombine át
+   Çpush eval over k +
+   pop 15 and 2* 2* m + w@ +
+   swap s rol ;
+
+át Åpermute  Ç"z "w!  "y "z!  "x "y!  "x + "x! ;
+ái f g Åround  Çcombine permute ;
+
+ái Åf-round  É' f Çover         round ;
+ái Åg-round  É' g Çover 5 * 1+  round ;
+ái Åh-round  É' h Çover 3 * 5 + round ;
+ái Åi-round  É' i Çover 7 *     round ;
+
+áx1 x2 x3 Åthird áx1 x2 x3 x1  Çpush over pop swap ;
+áf lim i Åloop
+   Çover over = drop if drop drop drop ; then
+      third over swap execute
+   1+ loop ;
+
+Å(chunk)
+   É' f-round Ç16  0 loop
+   É' g-round Ç32 16 loop
+   É' h-round Ç48 32 loop
+   É' i-round Ç64 48 loop ;
+
+Åaccum  Çused @ 8* total +! ;
+Ådrain  Çaccum 0 used ! ;
+
+Å>chunk  Ça @ "w!  b @ "x!  c @ "y!  d @ "z! ;
+Åchunk>  Ç"w a +!  "x b +!  "y c +!  "z d +! ;
+Åchunk  Ç>chunk (chunk) chunk> drain ;
+
+Åavail án  Çused @ 64 swap- ;
+Å>free áa  Çused @ m + ;
+
+ác-addr u-count Å(copy) án  Çavail min tuck >free swap move ;
+
+Å/string  Çpush  swap "r +  swap pop - ;
+ác-addr1 u-count1 Å(fill) ác-addr2 u-count2
+   Çover over (copy)  dup used +!  /string ;
+
+Åfull? áf  Çused @ 64 = ;
+ác-addr1 u-count1 Åupdate
+   Ç0if drop drop ; then
+      (fill) full? drop if chunk then
+   update ;
+
+Åempty  Ç>free avail erase ;
+Å1-bit  Ç128 >free c! 1 used +! ;
+Å0-bits  Çempty  avail 8 < drop if chunk empty then ;
+Å(pad)  Çaccum total @  1-bit  0-bits  m 56 + ! ;
+
+Åfinalize  Ç(pad) chunk ;
+áaddr count Ådigest  Çinit update finalize ;
+
+áResult is little-endian (A, B, C, D).  Begin with the LSB of A
+and end with the MSB of D.
+
+áu Åhexdigit
+   Ç15 and dup 10 >= drop if Échar a 10 - Ç+ ; then Échar 0 Ç+ ;
+
+ác-addr u Åhexbyte
+   Çover over
+   4 rshift hexdigit swap c!
+   hexdigit swap 1+ c! ;
+
+ác-addr u Åhexword
+   Çover     over           hexbyte
+   over 2 + over  8 rshift hexbyte
+   over 4 + over 16 rshift hexbyte
+   push 6 + pop  24 rshift hexbyte ;
+
+Åhexstring ác-addr u-count
+   Çpad      a @ hexword
+   pad  8 + b @ hexword
+   pad 16 + c @ hexword
+   pad 24 + d @ hexword
+   pad 32 ;
+
+ác-addr1 u-count1 Åhexdigest ác-addr2 u-count2  Çdigest hexstring ;
+
+áf Å(y/n)  Çdrop if " yes" ; then " no" ;
+áf Åy/n  Ç(y/n) type cr ;
+
+ác-addr1 u1 c-addr2 u2 Åstring=  Çcompare 0= ;
+ác-addr1 u1 c-addr2 u2 Åcheck?  Çhexdigest string= ;
+ác-addr1 u1 c-addr2 u2 Åcheck  Çcheck? y/n ;
+
+áMD5 test suite (RFC 1321, Appendix A.5):
+
+Åtest1  Ç" d41d8cd98f00b204e9800998ecf8427e" " " check ;
+Åtest2  Ç" 0cc175b9c0f1b6a831c399e269772661" " a" check ;
+Åtest3  Ç" 900150983cd24fb0d6963f7d28e17f72" " abc" check ;
+Åtest4  Ç" f96b697d7cb7938d525a2f31aaf161d0"
+       " message digest" check ;
+Åtest5  Ç" c3fcd3d76192e4007dfb496cca67e13b"
+       " abcdefghijklmnopqrstuvwxyz" check ;
+Åtest6  Ç" d174ab98d277d9f5a5611c2c9f419d9f"
+       " ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+       check ;
+Åtest7  Ç" 57edf4a22be3c955ac49da2e2107b67a"
+       " 12345678901234567890123456789012345678901234567890123456789012345678901234567890"
+       check ;
+
+áhttps://en.wikipedia.org/wiki/MD5
+
+Åtest8  Ç" 9e107d9d372bb6826bd81d3542a419d6"
+       " The quick brown fox jumps over the lazy dog" check ;
+Åtest9  Ç" e4d909c290d0fb1ca068ffaddf22cbd0"
+       " The quick brown fox jumps over the lazy dog." check ;
+
+Åtests
+   Çtest1 test2 test3 test4 test5 test6 test7
+   test8 test9 ;
+
+álim i Åtiming
+   Çover over = drop if drop drop ; then
+      tests
+   1+ timing ;
+
+átests
+á10000 0 timing

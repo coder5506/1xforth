@@ -1,0 +1,261 @@
+áCopyright 2022,2023 Eric Sessoms / MIT License
+
+áBasic definitions
+-----------------
+á#u Åuseraddr áaddr Ç"u + ;
+á#u Åuser@ áx Çuseraddr @ ;
+áx #u Åuser! Çuseraddr ! ;
+Å(user) áa-addr Çpop aligned @ useraddr ;
+Åuser Ü(user) Çalign up @ aligned dup , 0 over user! 8+ up ! ;
+
+
+áVirtual Memory
+--------------
+Åandn! Çtuck @ swap invert and swap ! ;
+Åor! Çtuck @ or swap ! ;
+Åfirst É1024 8* Ç"u + ; áAddress of block buffer metadata
+Åprev Çfirst @ 0if ; then Åmeta Ç8* first + ;
+áAddress of current buffer metadata
+Å?prev Çprev @ 0if drop pop drop then ; áGuard against unset PREV
+Ådirty Ç63 Åbit Ç1 swap lshift ;
+Ådirty? Çdup Édirty Çand 0<> swap -1 <> and ;
+Åcopy Ç?prev ! áAssign block number to buffer
+Åupdate Ç?prev Édirty Çswap or! ; áMark current buffer dirty
+
+Åempty-buffers Çfirst 64 -1 fill 0 first ! ; áUnassign all buffers
+Åsave-block Çdefer
+Åsave-buffer
+   Çdup meta @ dirty? drop 0if drop ; then
+   dup 512 * first + swap meta dirty over andn! @ save-block ;
+Åsave-buffers Ç7 for 7 "r - save-buffer next ;
+áWrite updated buffers to disk
+
+Åflush Çsave-buffers empty-buffers ; áSave, then unassign buffers
+
+
+áFile-access words
+á-----------------
+År/o Éo_rdonly Ç; År/w Éo_rdwr Ç; Åw/o Éo_wronly Ç;
+ác-addr u flags Åopen-file áfd Çpush >cstring pop 0 open ;
+áfd Åclose-file Çclose drop ;
+
+áfd Åfile-position áu Ç0 seek_cur lseek ;
+áu fd Åreposition-file Çswap seek_set lseek drop ;
+áfd Åfile-size áu
+   Çdup file-position swap
+   dup 0 Éseek_end Çlseek push
+   reposition-file pop ;
+
+Åstdin Ç0 ; Åstdout Ç1 ; Åstderr Ç2 ;
+
+
+áMemory-management
+á-----------------
+áHelpers for constructing arguments for mmap
+álen Å0addr áaddr len Ç0 swap ;
+álen Årw áaddr len prot Ç0addr Éprot_read prot_write or Ç;
+
+áaddr len prot Åmmap/anon áaddr Émap_anon map_private or Ç-1 0 mmap ;
+áaddr len prot fd Åmmap/private áaddr Émap_private Çswap 0 mmap ;
+áaddr len prot fd Åmmap/shared áaddr Émap_shared Çswap 0 mmap ;
+
+Åfail Çdrop 0 0 ;
+Å?fd Ç-if fail pop drop then ;
+áfd Åmap-fd áaddr u
+   Ç?fd dup push file-size dup rw pop mmap/shared swap ;
+áfd Åmap-fd/private áaddr u
+   Ç?fd dup push file-size dup rw pop mmap/private swap ;
+
+áfd xt Åwith-close á.. Çover push execute pop close-file ;
+áaddr u xt flags Åwith-open á..
+   Çswap push open-file pop with-close ;
+áaddr u xt Åwith-rdonly á.. Éo_rdonly Çwith-open ;
+áaddr u xt Åwith-rw á.. Éo_rdwr Çwith-open ;
+
+ác-addr u Åmap-file áaddr u É' map-fd Çwith-rw ;
+ác-addr u Åmap-file/private áaddr u É' map-fd/private Çwith-rw ;
+ác-addr u Åmap-file/ro áaddr u É' map-fd/private Çwith-rdonly ;
+
+áaddr len Åunmap Çmunmap drop ;
+
+Å/ceil Ç/mod swap drop if 1+ then ;
+Åpage É1 12 lshift Ç;
+Åpalign Épage Ç/ceil Épage Ç* ;
+álen Åmap áaddr len' Çpalign dup rw mmap/anon swap ;
+áMap pages of memory sufficient for LEN
+
+
+áRaw mode
+á--------
+Åhere/w áw-addr Çhere
+ác-addr Åwalign áw-addr  áAlign to 4-byte word boundary
+   Ç3 + -4 and ;
+áfd Ågetattr áw-addr Çhere/w tcgetattr 0if ; then drop here/w ;
+áfd xt Åmodattr áf Çpush dup getattr dup pop execute tcsetattrf ;
+áw-addr lflag Åoff Çinvert over w@ and swap w! ;
+áw-addr lflag Åon  Çover w@ or swap w! ;
+
+Återmios É0 value áPointer to original termios settings
+Årestore-termios áReset terminal to original settings
+   Çtermios drop 0if ; then
+   stdin termios tcsetattrf drop
+   termios dp !
+   0 to termios ;
+Åsave-termios áCopy original terminal settings
+   Çstdin here/w tcgetattr drop 0if ; then
+   here/w to termios
+   /termios allot ;
+
+Åraw-input-flags
+   Ébrkint      áDon't generate sigint
+   Éicrnl or    áDon't translate carriage returns
+   Éinpck or    áDon't check input parity
+   Éistrip or   áDon't strip eighth bit
+   Éixon or Ç;   áDisable software flow control
+Åraw-output-flags
+   Éopost Ç;     áDisable implementation-defined processing
+Åraw-local-flags
+   Éecho        áDon't echo input
+   Éicanon or   áDisable canonical mode
+   Éiexten or   áDisable implementation-defined processing
+   Éisig   or Ç; áDon't generate signals
+
+Åblocking-read
+   Ç>c_cc
+   0 over Évtime Ç+ c!  áNo timeout
+   Ç1 swap Évmin Ç+ c! ; áWait for at least one character
+Åeight-bit-characters
+   Çdup >c_cflag Écsize Çoff
+       >c_cflag Écs8   Çon ;
+
+Å(enable-raw)
+   Çdup >c_iflag Éraw-input-flags  Çoff
+   dup >c_oflag Éraw-output-flags Çoff
+   dup Ç>c_lflag Éraw-local-flags  Çoff
+   dup blocking-read
+   eight-bit-characters ;
+Åenable-raw áPut terminal in raw mode
+   Çstdin É' (enable-raw) Çmodattr drop ;
+
+
+áANSI Terminals
+á--------------
+Åbs Ç8 ; Åht Ç9 ; Ålf Ç10 ; Åff Ç12 ; Åesc Ç27 ; Ådel Ç127 ;
+Åctrl Ç31 and ; Åalt Ç128 or ;
+
+Åescape Éesc Çemit Échar [ Çemit ; áBegin escape sequence
+Émacro Å^[ Üescape Échar ] Çparse sliteral Ütype Ç; Éforth
+
+áForeground colors
+Å+black   Ç^[ 30m] ; Å+bright-black   Ç^[ 90m] ;
+Å+red     Ç^[ 31m] ; Å+bright-red     Ç^[ 91m] ;
+Å+green   Ç^[ 32m] ; Å+bright-green   Ç^[ 92m] ;
+Å+yellow  Ç^[ 33m] ; Å+bright-yellow  Ç^[ 93m] ;
+Å+blue    Ç^[ 34m] ; Å+bright-blue    Ç^[ 94m] ;
+Å+magenta Ç^[ 35m] ; Å+bright-magenta Ç^[ 95m] ;
+Å+cyan    Ç^[ 36m] ; Å+bright-cyan    Ç^[ 96m] ;
+Å+white   Ç^[ 37m] ; Å+bright-white   Ç^[ 97m] ;
+
+áBackground colors
+Å-black   Ç^[ 30m] ; Å-bright-black   Ç^[ 90m] ;
+Å-red     Ç^[ 31m] ; Å-bright-red     Ç^[ 91m] ;
+Å-green   Ç^[ 32m] ; Å-bright-green   Ç^[ 92m] ;
+Å-yellow  Ç^[ 33m] ; Å-bright-yellow  Ç^[ 93m] ;
+Å-blue    Ç^[ 34m] ; Å-bright-blue    Ç^[ 94m] ;
+Å-magenta Ç^[ 35m] ; Å-bright-magenta Ç^[ 95m] ;
+Å-cyan    Ç^[ 36m] ; Å-bright-cyan    Ç^[ 96m] ;
+Å-white   Ç^[ 37m] ; Å-bright-white   Ç^[ 97m] ;
+
+Åreset Ç^[ 0m] ; áRestore default colors
+Åreset-cursor Ç^[ ?25l] ; áMake cursor invisible
+Åset-cursor Ç^[ ?25h] ; áMake cursor visible
+
+Åps Åpn Ç<# #s #> ; Åsep Échar ; Çemit ;
+Åcup áCursor position
+   Çescape swap pn sep pn Échar H Çemit ;
+Åed Çescape ps Échar J Çemit ; áErase in display
+Åel Ç^[ K] ; áErase in line
+Åclear-screen Ç2 ed 1 1 cup reset ;
+
+Åclear-line Ç^[ 2k] 13 Çemit ;
+Åclear-line-right Ç^[ 0k] ;
+
+Åcleanup Çreset restore-termios ;
+
+
+áColor themes
+á------------
+Ådark Écreate
+   0 ,        ' +red , ' +bright-green , ' +bright-yellow ,
+   0 ,        0 ,      ' +bright-cyan ,  ' +bright-white ,
+   ' +white , ' +red , ' +green ,        ' +yellow ,
+   0 ,        0 ,      ' +cyan ,         0 ,
+Ålight Écreate
+   0 ,               ' +red , ' +green ,        ' +yellow ,
+   0 ,               0 ,      ' +cyan ,         ' +black ,
+   ' +bright-black , ' +red , ' +bright-green , ' +bright-yellow ,
+   0 ,               0 ,      ' +bright-cyan ,  0 ,
+Å(theme) É0 value  Åtheme Çto (theme) ; Élight theme
+Åshow-color Ç$0f and 8* (theme) + @ if execute ; then drop ;
+
+
+áREPL
+á----
+É' bye Åbye Çcr compile, ;
+Å?done É0 value
+Ålast-key É0 value Åread-key Çkey to last-key ;
+
+Å>tib Çtib #tib @ + c! 1 #tib +! ;
+Å?ok Ç?done drop if " ok" type cr then 0 to ?done ;
+Åinit Ç?ok 0 #tib ! 131 >tib +yellow ;
+
+Åbackspace
+   Ç#tib @ 1 > drop 0if ; then
+   -1 #tib +! Ébs Çemit Ébl Çemit Ébs Çemit ;
+Åcancel Çcr init ;
+Åself-insert
+   Çlast-key print? drop 0if ; then last-key dup emit >tib ;
+Åenter Ç$20 emit cleanup -1 to ?done ;
+
+Åkeypress Çread-key
+Åhandle-key
+   Çlast-key Échar C ctrl Ç= drop if cancel ; then
+   Çlast-key Échar D ctrl Ç= drop if cleanup bye ; then
+   last-key $0d Ç= drop if enter ; then
+   last-key $7f Ç= drop if backspace ; then
+   self-insert ;
+
+Åsubmit Ç0 >tib #tib @ 1- span ! 0 >in ! ;
+Åread-line áRead one line of input from terminal
+   Çsave-termios enable-raw init
+   Åloop Ç?done drop if submit ; then keypress loop ;
+Åuse-repl É' read-line Çnop É' query Çdefer! ;
+Å?patch Éstdin Çisatty drop if use-repl then ;
+áUse REPL if stdin is a terminal
+
+
+áScript execution
+á----------------
+Åuse@ Çuse @ ; Åuse! Çuse ! ;
+Åsave-input áSave current state of input source
+   Çpop source-id push use@ push push ;
+Årestore-input áRestore input source to state
+   Çpop pop use! pop source-id! push ;
+ác-addr u Åevaluate áUse string as input source
+   Çsave-input
+      span ! use! -1 source-id! 0 load
+   restore-input nop ;
+
+áfd buf count Åread+nul ábuf count  áRead buffer appending NUL
+   Çread-buf over over + 0 swap c! ;
+áfd Åinclude-file áUse file descriptor as input source
+   Çdup file-size      áLength of script file
+   Çdup 1+ map         áAllocate buffer with space for terminator
+   Çdrop swap read+nul áRead script appending terminator
+   Çevaluate ;
+ác-addr u Åincluded É' include-file Çwith-rdonly ;
+áUse named file as input source
+ác-addr u Åuse Çmap-file span ! use! ; áSet current block file
+
+Åmain Çargc 1 > drop if argv 8+ @ <cstring included then ?patch ;
+áDefault main executes script argument

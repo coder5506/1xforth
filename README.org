@@ -1,0 +1,58 @@
+#+TITLE: 1xforth
+
+#+BEGIN_QUOTE
+Shun magic and shun the appearance of magic.  Shun everything and then
+shun shunning. -- Mir Yannick
+#+END_QUOTE
+
+1xforth is a 64-bit natively-compiled[fn:subroutine-threaded]
+[[https://colorforth.github.io/cf.htm][colorForth]] for aarch64 and x86-64 CPUs.
+
+[fn:subroutine-threaded] Subroutine-threaded with inlining and minor
+optimizations.
+
+
+* Documentation
+
+See [[file:doc/README.org][doc/]]
+
+
+* License
+
+SPDX-License-Identifier: MIT
+
+See [[file:LICENSE][LICENSE]]
+
+The one exception is the included [[file:colorforth-mode.el][Emacs mode]] which, as a mishmash of
+other GPL licensed modes, is GPL-2.0-or-later.
+
+
+* Contents
+
+- [[file:bootstrap/README.org][bootstrap/]] Forth implemented in Forth
+- [[file:example/README.org][example/]] contains a few short, toy programs
+- [[file:lib/README.org][lib/]] has some longer code snippets
+- [[file:quartz64a/README.org][quartz64/]] builds for Quartz64 and PineNote
+- [[file:raspi3b/README.org][raspi3b/]] builds for Raspberry Pi
+- [[file:vim/][vim/]] minimal editor support for Vim
+
+
+* Platforms
+
+|                        | aarch64         | x86-64          |
+|------------------------+-----------------+-----------------|
+| FreeBSD with libc      | Not implemented | Works           |
+| FreeBSD without libc   | Not implemented | Works           |
+| Linux with libc        | Supported       | Supported       |
+| Linux without libc     | Supported       | Supported       |
+| MacOS with libc        | Supported       | Supported       |
+| MacOS without libc     | N/A             | Works[fn:Apple] |
+| Quartz64 Model A       | Works           | N/A             |
+| Raspberry Pi 3 Model B | Works           | N/A             |
+
+In the case of the bare-metal platforms, 1xforth boots and runs but
+device support is too limited to be interesting.
+
+[fn:Apple] Apple doesn't support running without linking their
+~-lSystem~.  On Intel, it can be done.  On Apple silicon, it doesn't
+seem to be worth the hassle.

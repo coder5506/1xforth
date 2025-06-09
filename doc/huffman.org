@@ -1,0 +1,199 @@
+#+TITLE: Huffman Encoding
+
+We use Huffman encoding to compress words in the binary image format.
+Compression is not strictly necessary on 64-bit systems as we have
+plenty of space, but it offers a few small advantages.
+
+First compression means that we don't lose much space by aligning
+words in the image.  An 8-byte word including a tag and a length can
+hold on average 10 characters which would otherwise occupy 11 bytes
+uncompressed.  This provides some compensation for everytime alignment
+forces us to use 8-bytes for a 5- or 6-character word.  Alignment
+matters more on some platforms than on others, but consistency makes
+it easy to prepare target images on a separate host platform.
+
+More importantly compression means that we can use smaller dictionary
+headers at runtime.  A 16-byte dictionary header allows 11 bytes for
+the name, so identifiers may be as long as 15 or more characters.
+Smaller dictionary headers are faster to search and occupy less space
+in cache.
+
+
+* Character Set
+
+We encode all printable US-ASCII characters except for the uppercase
+letters, rationalizing that words don't need to be case-sensitive.
+Unlike [[https://colorforth.github.io/chars.html][colorForth]], we do include all 32 punctuation marks.[fn::See
+also [[file::symbols.org][symbols.org]]]
+
+* Derivation
+
+The particular encoding used was derived using by counting the [[https://gforth.org/][Gforth]]
+sources ([[https://git.savannah.gnu.org/cgit/gforth.git/commit/?id=67e8df6329b52582fafa673b04957baa8d6e3d9e][67e8df6]]).  This corpus included 114,853 lines, 584,446 words,
+and 3,356,154 characters of commented Forth source code and produced a
+weighted average of 5.60 bits/character not including spaces.
+
+The encoding was then checked against a second encoding derived from
+the [[https://github.com/Perl/perl5/tree/v5.36.0][Perl 5.36.0]] sources--a much larger corpus--judging Perl to be the
+language most similar to Forth in looking like line noise.  The
+Perl-derived encoding was identical except for a few punctuation marks
+(e.g., "_" more frequent than "-") and only slightly less efficient at
+5.85 bits/character.
+
+The similarity to Perl is a good indicator of stability, and suggests
+the Gforth-derived encoding is not an artifact of the small size of
+the corpus.
+
+
+* Canonical Encoding
+
+Ordered by encoding size in bits, then by character code.
+
+| Length | ASCII | Character |      Encoding |
+|--------+-------+-----------+---------------|
+|      2 |    32 |           |            00 |
+|      4 |   101 | e         |          0100 |
+|      4 |   116 | t         |          0101 |
+|      5 |    45 | -         |         01100 |
+|      5 |    97 | a         |         01101 |
+|      5 |    99 | c         |         01110 |
+|      5 |   100 | d         |         01111 |
+|      5 |   102 | f         |         10000 |
+|      5 |   105 | i         |         10001 |
+|      5 |   108 | l         |         10010 |
+|      5 |   110 | n         |         10011 |
+|      5 |   111 | o         |         10100 |
+|      5 |   114 | r         |         10101 |
+|      5 |   115 | s         |         10110 |
+|      6 |    48 | 0         |        101110 |
+|      6 |   103 | g         |        101111 |
+|      6 |   104 | h         |        110000 |
+|      6 |   109 | m         |        110001 |
+|      6 |   112 | p         |        110010 |
+|      6 |   117 | u         |        110011 |
+|      7 |    40 | (         |       1101000 |
+|      7 |    41 | )         |       1101001 |
+|      7 |    44 | ,         |       1101010 |
+|      7 |    46 | .         |       1101011 |
+|      7 |    49 | 1         |       1101100 |
+|      7 |    50 | 2         |       1101101 |
+|      7 |    58 | :         |       1101110 |
+|      7 |    62 | >         |       1101111 |
+|      7 |    92 | \         |       1110000 |
+|      7 |    98 | b         |       1110001 |
+|      7 |   118 | v         |       1110010 |
+|      7 |   119 | w         |       1110011 |
+|      7 |   120 | x         |       1110100 |
+|      7 |   121 | y         |       1110101 |
+|      8 |    34 | "         |      11101100 |
+|      8 |    35 | #         |      11101101 |
+|      8 |    36 | $         |      11101110 |
+|      8 |    39 | '         |      11101111 |
+|      8 |    43 | +         |      11110000 |
+|      8 |    51 | 3         |      11110001 |
+|      8 |    59 | ;         |      11110010 |
+|      8 |    61 | =         |      11110011 |
+|      8 |    64 | @         |      11110100 |
+|      8 |    91 | [         |      11110101 |
+|      8 |    93 | ]         |      11110110 |
+|      8 |   107 | k         |      11110111 |
+|      9 |    33 | !         |     111110000 |
+|      9 |    42 | *         |     111110001 |
+|      9 |    47 | /         |     111110010 |
+|      9 |    52 | 4         |     111110011 |
+|      9 |    53 | 5         |     111110100 |
+|      9 |    54 | 6         |     111110101 |
+|      9 |    56 | 8         |     111110110 |
+|      9 |    57 | 9         |     111110111 |
+|      9 |    63 | ?         |     111111000 |
+|      9 |    95 | _         |     111111001 |
+|      9 |   122 | z         |     111111010 |
+|      9 |   123 | {         |     111111011 |
+|      9 |   125 | }         |     111111100 |
+|     10 |    55 | 7         |    1111111010 |
+|     10 |    60 | <         |    1111111011 |
+|     10 |   106 | j         |    1111111100 |
+|     10 |   113 | q         |    1111111101 |
+|     11 |    37 | %         |   11111111100 |
+|     11 |   124 | \vert     |   11111111101 |
+|     11 |   126 | ~         |   11111111110 |
+|     12 |    94 | ^         |  111111111110 |
+|     13 |    38 | &         | 1111111111110 |
+|     13 |    96 | `         | 1111111111111 |
+
+
+* ASCII Order, LSB
+
+Ordered by ASCII code and the encoding rewritten with the least-significant bit first.
+
+| ASCII | Character | Length |  LSB Encoding |
+|-------+-----------+--------+---------------|
+|    32 |           |      2 |            00 |
+|    33 | !         |      9 |     000011111 |
+|    34 | "         |      8 |      00110111 |
+|    35 | #         |      8 |      10110111 |
+|    36 | $         |      8 |      01110111 |
+|    37 | %         |     11 |   00111111111 |
+|    38 | &         |     13 | 0111111111111 |
+|    39 | '         |      8 |      11110111 |
+|    40 | (         |      7 |       0001011 |
+|    41 | )         |      7 |       1001011 |
+|    42 | *         |      9 |     100011111 |
+|    43 | +         |      8 |      00001111 |
+|    44 | ,         |      7 |       0101011 |
+|    45 | -         |      5 |         00110 |
+|    46 | .         |      7 |       1101011 |
+|    47 | /         |      9 |     010011111 |
+|    48 | 0         |      6 |        011101 |
+|    49 | 1         |      7 |       0011011 |
+|    50 | 2         |      7 |       1011011 |
+|    51 | 3         |      8 |      10001111 |
+|    52 | 4         |      9 |     110011111 |
+|    53 | 5         |      9 |     001011111 |
+|    54 | 6         |      9 |     101011111 |
+|    55 | 7         |     10 |    0101111111 |
+|    56 | 8         |      9 |     011011111 |
+|    57 | 9         |      9 |     111011111 |
+|    58 | :         |      7 |       0111011 |
+|    59 | ;         |      8 |      01001111 |
+|    60 | <         |     10 |    1101111111 |
+|    61 | =         |      8 |      11001111 |
+|    62 | >         |      7 |       1111011 |
+|    63 | ?         |      9 |     000111111 |
+|    64 | @         |      8 |      00101111 |
+|    91 | [         |      8 |      10101111 |
+|    92 | \         |      7 |       0000111 |
+|    93 | ]         |      8 |      01101111 |
+|    94 | ^         |     12 |  011111111111 |
+|    95 | _         |      9 |     100111111 |
+|    96 | `         |     13 | 1111111111111 |
+|    97 | a         |      5 |         10110 |
+|    98 | b         |      7 |       1000111 |
+|    99 | c         |      5 |         01110 |
+|   100 | d         |      5 |         11110 |
+|   101 | e         |      4 |          0010 |
+|   102 | f         |      5 |         00001 |
+|   103 | g         |      6 |        111101 |
+|   104 | h         |      6 |        000011 |
+|   105 | i         |      5 |         10001 |
+|   106 | j         |     10 |    0011111111 |
+|   107 | k         |      8 |      11101111 |
+|   108 | l         |      5 |         01001 |
+|   109 | m         |      6 |        100011 |
+|   110 | n         |      5 |         11001 |
+|   111 | o         |      5 |         00101 |
+|   112 | p         |      6 |        010011 |
+|   113 | q         |     10 |    1011111111 |
+|   114 | r         |      5 |         10101 |
+|   115 | s         |      5 |         01101 |
+|   116 | t         |      4 |          1010 |
+|   117 | u         |      6 |        110011 |
+|   118 | v         |      7 |       0100111 |
+|   119 | w         |      7 |       1100111 |
+|   120 | x         |      7 |       0010111 |
+|   121 | y         |      7 |       1010111 |
+|   122 | z         |      9 |     010111111 |
+|   123 | {         |      9 |     110111111 |
+|   124 | \vert     |     11 |   10111111111 |
+|   125 | }         |      9 |     001111111 |
+|   126 | ~         |     11 |   01111111111 |

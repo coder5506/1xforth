@@ -1,0 +1,109 @@
+#+TITLE: PINE64 Quartz64 Model A
+
+The files in this directory build bootable images for the Quartz64
+Model A and the PineNote.
+
+You will minimally need a device tree,[fn::Not included due to license
+incompatibility.]  then after running ~make~ you can copy ~1x~,
+~extlinux.conf~, and the DTB to your ~/boot~ partition.
+
+The top-level make targets are
+
+- ~1x~ or ~all~ (default) a bare-metal Forth
+- ~kernel~ an ext4 ~/boot~ partition
+- ~sdcard~ a bootable SD card image
+
+
+* Prerequisites
+
+We need a bootloader and Das U-Boot seems to be the only viable option
+for this board.  We also need a device tree to keep the bootloader
+happy.
+
+First get the Rockchip [[https://github.com/rockchip-linux/rkbin.git][binary blobs]] that initialize the trust
+framework.
+
+#+BEGIN_SRC bash
+git clone https://github.com/rockchip-linux/rkbin.git
+#+END_SRC
+
+Mainline U-Boot does not yet support the Quartz64 owing to said
+proprietary
+blobs,[fn::[[https://wiki.pine64.org/wiki/Quartz64_Development#Mainline_U-Boot_Work]]]
+so the best we can do right now is the [[https://gitlab.com/pgwipeout/u-boot-rockchip/-/tree/quartz64][community fork]].
+
+#+BEGIN_SRC bash
+git clone https://gitlab.com/pgwipeout/u-boot-rockchip.git
+#+END_SRC
+
+This fork is based on an old version of U-Boot that does not build
+with recent versions of GCC.  Get a working GCC 10.3 [[https://developer.arm.com/downloads/-/gnu-a][here]].
+
+Build U-Boot.
+
+#+BEGIN_SRC bash
+cd /path/to/u-boot-rockchip
+PATH=/path/to/gcc-arm-10.3-2021.07-x86_64-aarch64-none-elf/bin:$PATH
+export CROSS_COMPILE=aarch64-none-elf-
+export ARCH=arm64
+make rk3566-quartz64_defconfig
+./make.sh
+#+END_SRC
+
+The device trees are available in the mainline kernel as of 5.16.
+
+#+BEGIN_SRC bash
+cd /path/to/linux
+make ARCH=arm64 defconfig
+make dtbs
+#+END_SRC
+
+Copy the required files into this directory.
+
+#+BEGIN_SRC bash
+cp /path/to/u-boot-rockchip/idblock.bin .
+cp /path/to/u-boot-rockchip/uboot.img .
+cp /path/to/linux/arch/arm64/boot/dts/rockchip/rk3566-pinenote-v1.2.dtb .
+cp /path/to/linux/arch/arm64/boot/dts/rockchip/rk3566-quartz64-a.dtb .
+#+END_SRC
+
+
+* Install
+
+If you already have a bootable partition, you can just copy the files
+~1x~, ~extlinux.conf~, and the DTB into place.
+
+For a Quartz board, you can write the ~sdcard.img~ to an SD card or
+eMMC using the tool of your choice.
+
+Otherwise to install to a PineNote, you will need [[https://gitlab.com/pine64-org/quartz-bsp/rkdeveloptool][rkdeveloptool]].  Note
+especially the updated build instructions in [[https://gitlab.com/pine64-org/quartz-bsp/rkdeveloptool/-/issues/3][Issue #3]].
+
+Get into rocksb mode
+
+#+BEGIN_SRC bash
+rockusb 0 mmc 0
+#+END_SRC
+
+Then the install procedure is[fn::Credit [[https://gitlab.com/rduplain][R. DuPlain]]]
+
+#+BEGIN_SRC bash
+rkdeveloptool erase-flash
+rkdeveloptool reset
+rkdeveloptool boot rk356x_spl_loader_v1.08.111.bin
+rkdeveloptool gpt partitions-gpt.txt
+rkdeveloptool wl 0x40 idblock.bin
+rkdeveloptool wl 0x4000 uboot.img
+rkdeveloptool wl 0x8000 kernel.img
+#+END_SRC
+
+
+* Files
+
+- [[file:GNUmakefile][GNUmakefile]] does not pretend to be portable
+- [[file:board.S][board.S]] ~_start~ does pretend to be a Linux kernel
+- [[file:board.cf][board.cf]] customizes Forth bootstrap for Quartz64-A
+- [[file:board.ld][board.ld]] linker script
+- [[file:extlinux.conf][extlinux.conf]] tells syslinux bootloaders where to find "kernel"
+- [[file:partitions-gpt.txt][partitions-gpt.txt]] defines ~/boot~ partition for rkdeveloptool
+- [[file:partitions.txt][partitions.txt]] defines ~/boot~ partition for SD card images

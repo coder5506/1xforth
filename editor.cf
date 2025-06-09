@@ -1,0 +1,612 @@
+#!/usr/bin/env 1x
+
+áLZW compression saves space in comments
+Åsequences  Écreate 128 65 * allot
+Åcodes  Écreate 257 2* allot
+Åprev  É129 value
+Ånext  É130 value
+
+Åcode!  Ç2* codes + h! ;
+Å0sequences  Çsequences 128 65 * erase  0
+  Åloop
+   Çdup 128 = drop if drop ; then
+   dup dup sequences + c!  1+ loop ;
+Å0codes  Çcodes 257 2* 128 fill  0
+  Åloop
+   Çdup 128 = drop if drop ; then  dup dup code!  1+ loop ;
+Ålzw/clear  Ç0sequences 0codes  129 to prev  130 to next ;
+
+Åcode  Ç2* codes + h@ ;
+Åsequence  Çcode sequences + ;
+Ålookup  Çdup sequence  swap 1+ sequence over - ;
+
+án Å?defined  Çnext = drop if drop prev then ;
+án Å?extend
+   Çnext 256 = drop if drop ; then
+   dup ?defined  prev swap
+án1 n2 Åextend
+   Çswap lookup tuck  next sequence swap move
+   next + 1+  next 1+ to next  next code!
+   lookup drop c@  next sequence 1- c! ;
+
+áTODO update prev
+án Ålzw/decode  Çdup ?extend  lookup ;
+
+
+áColors represent tags in the edit buffer and in display.  Colors
+are distinguished from ASCII characters by the sign bit.
+Åblack  Ç$80 ;   Åred      Ç$81 ;   Ågreen  Ç$82 ;   Åyellow  Ç$83 ;
+Åblue   Ç$84 ;   Åmagenta  Ç$85 ;   Åcyan   Ç$86 ;   Åwhite   Ç$87 ;
+Åcolor?  Ç$80 $90 within ;
+
+Åbright    Ç$08 or ;  áBright colors can have alternative meanings
+Åbright?   Ç$08 and 0 <> ;
+Å~bright   É$08 invert Çand ;
+Åcolor=?  Çswap ~bright = ;
+Åblack?  Çblack color=? ;   Åred?      Çred     color=? ;
+Ågreen?  Çgreen color=? ;   Åyellow?   Çyellow  color=? ;
+Åblue?   Çblue  color=? ;   Åmagenta?  Çmagenta color=? ;
+Åcyan?   Çcyan  color=? ;   Åwhite?    Çwhite   color=? ;
+
+
+áTags occupy the first byte of a word in source blocks.
+Åword>tag  Ç$f0 and ;  áHigh nibble holds the tag.
+Åword>len  Ç$0f and ;  áLow nibble holds the length.
+Åtag>color  Ç$f0 and 4 rshift $80 or ;
+Åcolor>tag  Ç$0f and 4 lshift ;
+
+
+áEdit buffer is implemented with point and gap.
+Å'point  Ç0 ;   Å'gap  Ç8 ;   Å'#gap  Ç16 ;   Å'data  Ç24 ;
+Åsize  Ç512 ;
+Åbuffer  Écreate 'data size + allot
+Åcurrent  Ébuffer value
+Åpoint  Çcurrent 'point + ;
+Ågap  Çcurrent 'gap + ;   Å#gap  Çcurrent '#gap + ;
+Ådata  Çcurrent 'data + ;
+Åpoint-min  Ç0 ;   Åpoint-max  Ésize Ç#gap @ - ;
+Å0buffers  Çbuffer
+Å0buffer  Çdup É'data size + Çerase  Ésize Çswap '#gap + ! ;  É0buffers
+
+Å(move)  Çpush  swap data +  swap data +  pop move ;
+Ågap<  áMove gap down
+áRelocate data from before gap to after
+   Çpoint @  dup #gap @ +  gap @ point @ -  (move)
+Ågap!  Çpoint @ gap ! ;
+Ågap>  áMove gap up
+áRelocate data from after gap to before
+   Çgap @  dup #gap @ + swap  point @ gap @ -  (move)  gap! ;
+Ågap>point  ámove gap to point
+   Çpoint @ gap @ < drop if gap< ; then
+   point @ gap @ > drop if gap> ; then ;
+
+Åpoint+  Ç1   Å+point  Çpoint @ +  áForward char
+Åpoint!  Çpoint-min max  point-max min  point ! ;  áGoto char
+Åpoint-  Ç1   Å-point  Çnegate +point  ;  áBackward char
+
+Åsave-excursion  áPreserve dynamic value of point
+   Çpoint @ push  execute  pop point! ;
+
+Åbob!  Çpoint-min point! ;  áBeginning of buffer
+Å?bob  Çpoint @ point-min = ;   Å?eob  Çpoint @ point-max = ;
+
+Åeob!  Çpoint-max point! ;  áEnd of buffer
+Ågap>end  Çeob! gap>point ;
+
+Å>char  áAddress of character at point
+   Çpoint @ point-max = drop if 0 ; then
+   point @  dup gap @ >= drop if #gap @ + then  data + ;
+Åchar@  Ç>char 0if ;  then c@ ;  áFollowing char
+Åchar@+  Çchar@ point+ ;
+Åchar<  Ç?bob drop if 0 ;  then point- char@ point+ ;  áChar before
+Åchar!
+   Ç#gap @ drop 0if drop ; then
+   gap>point  gap @ data + c!  1 gap +!  -1 #gap +! ;
+Åchar!+  Çchar! point+ ;  áInsert char
+
+
+áEdit functions
+Å?color  Çchar@ color? ;  áLooking at a color
+Åword>  áForward word
+   Ç?eob drop if ; then  point+ ?color drop if ; then  word> ;
+Åword<  áBackward word
+   Ç?bob drop if ; then  point- ?color drop if ; then  word< ;
+
+Ådel<char  Ç?bob drop if ; then  point-
+  Ådel>char  Ç?eob drop if ; then  gap>point  1 #gap +! ;
+Åchar!  Çdel>char char!+ point- ;  áReplace char
+
+Ådel<word  Ç?bob drop if ; then  word<  áDelete backward word
+  Ådel>word  Ç?color drop 0if ; then    áDelete forward word
+  Åloop
+   Çdel>char ?eob drop if ; then  ?color drop if ; then  loop ;
+
+Å?end-word  Çchar< color? drop 0if ; then  del<char ?end-word ;
+Åinsert-word  Ç?end-word char!+ ;
+
+Å(color<)   Çword< char@  dup color? drop 0if drop white then ;
+Å(color<<)  Ç(color<) drop (color<) ;
+Åcolor<   É' (color<)  Çsave-excursion ;  áBackward color
+Åcolor<<  É' (color<<) Çsave-excursion ;  áPrevious color
+
+Å?new-color
+   Çdup bright? drop if ~bright      then
+   dup red?    drop if drop green ; then
+   dup blue?   drop if drop white ; then ;
+Å(qcolor)  Çcolor<< ?new-color insert-word ;
+Åqcolor  Çcolor< blue? drop if (qcolor) then ;  áEnsure color
+
+ác1 Å>lower ác2  Çdup 65 91 within drop if 32 or then ;
+Åqlower  Çcolor< white? drop if ; then  >lower ;
+Åinsert-graph  Çqcolor qlower char!+ ;  áInsert graphic character
+Åinsert-space
+   Çcolor< white? drop if char!+ ; then
+   color< blue? drop 0if blue insert-word drop ; then
+   char!+ ;
+Å?blue  Çcolor< blue? drop 0if blue insert-word then ;
+Åinsert-lf  Çdrop lf  Åinsert-blue  Ç?blue char!+ ;
+Åinsert-tab  Çcolor< white? drop if char!+ ; then  insert-blue ;
+
+Åhexdigit?
+   Çdup 48 58 within if nip ; then drop
+   dup 65 71 within if nip ; then drop  97 103 within ;
+Åhex-insert  Çdup hexdigit? drop if >lower char!+ ; then drop ;
+Å?hex-word  Çcolor<  Åhex-word?  Çdup bright?  swap red? 0=  and ;
+
+Ågraph?  Ç$21 $7f within ;  áPrintable character other than space
+Åself-insert
+   Çlast-key
+      dup Éht Ç=   drop if insert-tab   ; then
+      dup $c =   drop if insert-blue  ; then
+      dup $d =   drop if insert-lf    ; then
+      dup Ébl Ç=   drop if insert-space ; then
+      ?hex-word  drop if hex-insert   ; then
+      dup graph? drop if insert-graph ; then
+   drop ;
+
+Ånext-color
+   Çdup white?  drop if drop yellow ; then
+   dup yellow? drop if drop green  ; then
+   dup green?  drop if drop white  ; then
+   dup red        = drop if drop red bright ; then
+   dup red bright = drop if drop red        ; then ;
+Åcycle  áColor of word at point
+   Ç?color drop if char@ next-color char! then ;
+
+
+áRead from and write to code blocks
+Åc!+  Ç[ c! "a ++ ] ;   Åc@+  Ç[ c@ "a ++ ] ;
+Åw!+  Ç[ w! "a ++ ] ;   Åw@+  Ç[ w@ "a ++ ] ;
+Åd!+  Ç[  ! "a ++ ] ;   Åd@+  Ç[  @ "a ++ ] ;
+
+
+áLoad buffer from block
+ác-addr1 u1 Å(getc) ác-addr2 u2 c
+   Çswap  dup c@ push  1+ swap 1- pop ;
+ác-addr u Åinsert-chars
+   Ç0if drop drop ; then  (getc) char!+ insert-chars ;
+
+Å+w@  Çw@+ 32 lshift or ;
+áw Å<huffman2  Ç+w@
+áw Å<huffman1  Ç0 swap
+áx1 x2 Å<huffman  Çdecode count insert-chars ;
+áw Å<huffman3  Ç+w@ w@+ swap <huffman ;
+áw Å<huffman
+   Çdup word>len
+   dup 8 > drop if drop <huffman3 ; then
+       4 > drop if      <huffman2 ; then
+   <huffman1 ;
+
+áw Åblue>buffer  Çdup 8 rshift  swap word>len
+  Åloop  Ç1- -if drop drop ; then  over char!+ loop ;
+
+ác Å<lzw/decode  Çlzw/decode insert-chars ;
+
+Åwalign  Ç3 + -4 and ;
+Å"a/walign  Ç"a walign "a! ;
+Åwhite-start  Ç"a 3 - "a! ;
+Åreadlen án  Çc@+ dup 128 < drop if ; then  128 - 0 swap
+  Åloop
+   Ç1- -if drop ; then  swap 256 * c@+ + swap loop ;
+áw Åwhite-len án  áDecode comment length
+   Çword>len if ; then  drop readlen ;
+án Å(white>buffer)  áDecode comment data
+   Ç1- -if drop ; then  c@+
+   dup $81 = drop if drop drop ; then
+   dup $80 = drop if drop lzw/clear (white>buffer) ; then
+   <lzw/decode (white>buffer) ;
+áw Åwhite>buffer  áDecode a comment
+   Çwhite-start
+      white-len  dup "a +  swap (white>buffer)
+   "a! "a/walign ;
+
+Å(16bit)  Ç16 rshift ;
+Å(32bit)  Çdrop w@+ ;
+Å(64bit)  Çdrop d@+ ;
+Åbright>number
+   Çdup word>len
+   dup 2 = drop if drop (16bit) ; then
+   dup 4 = drop if drop (32bit) ; then
+   dup 8 = drop if drop (64bit) ; then drop 0 ;
+Ånum>buffer  Çhex <# #s
+  Åloop Ç0if drop ; then  1- swap  >lower char!+ loop ;
+Åbright>buffer
+   Çbright>number  base @ push  num>buffer  pop base ! ;
+
+áw Åword>buffer  áDecode next word
+   Çdup tag>color
+   dup char!+
+   dup blue?  drop if drop blue>buffer  ; then
+   dup white? drop if drop white>buffer ; then
+   dup green  bright = drop if drop bright>buffer ; then
+   dup cyan   bright = drop if drop bright>buffer ; then
+   dup yellow bright = drop if drop bright>buffer ; then drop
+   <huffman ;
+
+Åblk>buffer  áDecode block into buffer
+   Çbuffer dup to current 0buffer  lzw/clear
+   blk @ block "a!
+  Åloop Çw@+  0if drop ; then  word>buffer loop ;
+
+
+áSave buffer to block
+Ånext-tag
+   Çchar@+ 0if ; then  dup color? drop if ; then  drop next-tag ;
+Å(length)  Çpoint @  next-tag drop if point- then  point @ swap- ;
+Ålength  É' (length) Çsave-excursion ;
+
+Å(next-word) ác-addr u  Ç>char length dup +point ;
+Ånext-word áx1 x2
+   Çchar@+ push  (next-word) encode  pop color>tag or ;
+
+áx1 x2 Å>huffman2  Çnip   Å2w!+  Çdup w!+  32 rshift w!+ ;
+áx1 x2 Å>huffman3  Ç2w!+ w!+ ;
+Åword>blk
+   Çnext-word dup word>len
+   dup 8 > drop if drop >huffman3 ; then
+       4 > drop if      >huffman2 ; then
+   nip w!+ ;
+
+ác Å?rpt áf  Çchar@ = if point+ then ;
+ác Å?advance áf  Çdup ?rpt if nip ; then  drop
+  ác Å?blue-rpt áf
+   Çchar@ blue = if drop
+      point+  ?rpt  0if point- then ;
+   then nip ;
+ác n Årle ác n
+   Çdup 15 = drop if ; then
+   over ?advance drop 0if ; then  1+ rle ;
+Åblue>blk  áEncode layout word
+   Çchar@+ color>tag  char@+ 1 rle  swap 8 lshift or or  w!+
+  Åloop
+   Çchar@ 0if drop ; then  color? drop if ; then
+   point+ loop ;
+
+Åwalign/"a  áPad to next word boundary
+   Ç"a 3 and drop 0if ; then  0 c!+  walign/"a ;
+ác-addr len off Åslide  áShift data down
+   Çdup "a + "a!  swap push  over +  pop move ;
+ác c-addr Åc-or!  Çtuck  c@ or  swap c! ;
+ác-addr u Å(4bit)  Çswap c-or! ;
+ác-addr u Å(7bit)  Çover 1+ over 1 slide  swap 1+ c! ;
+ác-addr u Å(16bit)  áTwo-byte big-endian length
+   Çover 1+ over 3 slide
+   push
+   130 over 1+ c!
+   "r 256 / over 2 + c!
+   pop 256 mod swap 3 + c! ;
+ác-addr Å(len)  áEncode comment length
+   Ç"a over 1+ -
+   dup  16 < drop if (4bit) ; then
+   dup 128 < drop if (7bit) ; then (16bit) ;
+Å(white>blk)  áEncode comment data
+   Çchar@  0if drop ; then
+   dup white = drop if drop bl then
+   dup color? drop if drop ; then
+   point+  c!+  (white>blk) ;
+Åwhite>blk  áEncode a comment
+   Çchar@+ color>tag "a swap c!+
+   (white>blk)  $81 c!+  (len)  walign/"a ;
+
+Å(16bit)  Ç16 lshift or  2 or  w!+ ;
+Å(32bit)  Çpush  4 or w!+  pop w!+ ;
+Å(64bit)  Çpush  8 or w!+  pop d!+ ;
+Åbright>num áu chars
+   Ç0 (next-word)  dup push
+      base @ push  hex natural drop drop  pop base !
+   pop ;
+Åbright>blk
+   Çchar@+ color>tag  bright>num
+   dup 4 <= drop if drop (16bit) ; then
+   dup 8 <= drop if drop (32bit) ; then drop (64bit) ;
+
+Å>blk  áEncode word at point
+   Çchar@
+   dup blue  = drop if drop blue>blk  ; then
+   dup white = drop if drop white>blk ; then
+   dup green  bright = drop if drop bright>blk ; then
+   dup cyan   bright = drop if drop bright>blk ; then
+   dup yellow bright = drop if drop bright>blk ; then
+   drop word>blk ;
+Å(buffer>blk)  Çgap>end bob!
+  Åloop Ç?color drop 0if ; then  >blk loop ;
+Åbuffer>blk  áEncode buffer to block
+   Çbuffer to current  blk @ block dup Ésize Çerase "a!
+   É' (buffer>blk) Çsave-excursion ;
+
+Åupdate  áSave buffer to block, refresh buffer from block
+   Çbuffer>blk blk>buffer ;
+
+
+áRendering
+Å?definition  É0 value  áWithin a definition
+Å?content     É0 value  áLine is not empty
+Å?blank  Ç?content 0= ;  áLine has only whitespace
+
+Åprev-color  É0 value
+Åcurr-color  É0 value
+
+Åline    É0 value
+Åcolumn  É0 value
+Å?bol  Çcolumn 0= ;  áBeginning of line
+
+Ålast-column  Ç64 ;
+Ånext-line
+   Çline 1+ to line  0 to column
+   ?blank drop if 0 to ?definition then  0 to ?content ;
+Ånext-column
+   Çcolumn 1+ dup to column
+   Élast-column Ç> drop if next-line then ;
+
+Åcursor-line    É0 value
+Åcursor-column  É0 value
+Åcursor-point   É0 value
+Å?captured  Çcursor-point 0< ;
+Åcapture
+   Çline to cursor-line  column to cursor-column
+   -1 to cursor-point ;
+Å?capture
+   Ç?captured drop if ; then
+   cursor-point point @ < drop if capture then ;
+
+Å?drawing  É0 value  áOr measuring?
+Ådrawing!
+   Çto ?drawing
+   0 to ?definition  0 to ?content
+   0 to prev-color  0 to curr-color
+   0 to line  0 to column
+   0 to cursor-line  0 to cursor-column
+   point @ to cursor-point ;
+
+Åemit'  Ç?drawing drop 0if drop ; then  emit ;
+Åemit-char
+   Çdup print? drop 0if drop ; then
+   dup graph? drop if -1 to ?content then
+   curr-color white? drop 0if >lower then
+   emit' next-column ;
+
+Å(crlf)  Çel cr ;
+Åcrlf  Ç?drawing drop if (crlf) then  next-line ;
+Å?crlf  Çcolumn + Élast-column Ç> drop if crlf then ;
+
+Åspace'  Ç$20 emit-char ;
+Åspaces'  Ç1- -if drop ; then  space' spaces' ;
+
+Åround  Çtuck +  over /  * ;
+Åtabcol  Çcolumn swap round  last-column min ;
+Å(tab)  Çtabcol column - spaces' ;
+Åindent  Ç3 (tab) ;
+Åtab  Ç?blank drop if indent ; then  16 (tab) ;
+
+Åsep Ç1- -if drop ; then  $2d emit' sep ;
+Ånew-page  Ç64 dup ?crlf sep crlf ;
+
+Å#decorate  Çcurr-color hex-word? 1 and ;
+Ådecorate  Çcurr-color hex-word? drop if $24 emit-char then ;
+
+Å#break
+   Çcurr-color blue? drop if 0 ; then
+   prev-color blue? drop if 0 ; then
+   curr-color prev-color = drop if 1 ; then
+   curr-color red?   drop if 2 ; then
+   curr-color white? drop if 2 ; then
+   prev-color red  = drop if 2 ; then
+   1 ;
+Åbreak'  Ç#break spaces' ;
+
+Åmeasure  Çlength  #break +  #decorate + ;
+Åarrange/defn
+   Çcurr-color red?   drop if ; then
+   curr-color white? drop if ; then  indent ;
+Åarrange/bol  Ç?definition drop 0if ; then  arrange/defn ;
+Åarrange
+   Ç?bol drop if arrange/bol ; then
+   curr-color red = drop if crlf ; then
+   measure column +  last-column > drop if crlf arrange ; then
+   break' ;
+
+Åcolorize
+   Çcurr-color to prev-color  ?drawing drop 0if ; then
+   curr-color  dup blue? drop if drop white then  show-color ;
+
+Å[blue]   Çdefer
+Å[color]  Çdefer
+Å[white]  Çdefer
+Å[word]   Çdefer
+
+Å[>blue]   Çto curr-color  [blue]  ;
+Å[>color]  Çto curr-color  [color] ;
+Å[>white]  Çto curr-color  arrange colorize  [white] ;
+Å[>word]   Ç?capture  emit-char  [word] ;
+
+Å[color>word]  áTransition [color] to [word]
+   Ç?bol curr-color red? and drop if -1 to ?definition then
+   arrange colorize decorate [>word] ;
+
+Å(common)
+   Çchar@+  0if drop  pop drop ; then
+   dup blue?  drop if pop drop  [>blue]  ; then
+   dup white? drop if pop drop  [>white] ; then
+   dup color? drop if pop drop  [>color] ; then ;
+
+Åb/w-tab    Çcolorize tab      execute ;
+Åb/w-crlf   Çcolorize crlf     execute ;
+Åb/w-page   Çcolorize new-page execute ;
+Åb/w-space  Çcolorize space'   execute ;
+Åblue/white
+   Çdup $9   = drop if drop ?capture b/w-tab   ; then
+   dup $a   = drop if drop ?capture b/w-crlf  ; then
+   dup $c   = drop if drop ?capture b/w-page  ; then
+   dup $20  = drop if drop ?capture b/w-space ; then
+   drop execute ;
+Å(blue)  Ç(common)  É' (blue) Çswap Çblue/white ;
+É' (blue) is [blue]
+
+Å(color)  áLooking at a color
+   Ç(common)
+   dup graph? drop if [color>word] ; then  drop (color) ;
+É' (color) is [color]
+
+Å(white)
+   Ç(common)
+   dup graph? drop if emit-char (white) ; then
+   É' (white) Çswap blue/white ;
+É' (white) is [white]
+
+Å(word)  áWithin a word
+   Ç(common)  dup graph? drop if [>word] ; then  drop (word) ;
+É' (word) is [word]
+
+Å(draw-all)  Çdrawing!  bob! [blue] ;
+Ådraw-all  Ç1 1 cup  -1 É' (draw-all) Çsave-excursion  el ;
+
+Ånumber-block
+   Çblk @ <# #s 63 over - 1 swap cup
+   black bright show-color space #> ;
+
+Ålocate-cursor  Ç0 É' (draw-all) Çsave-excursion
+  Åfind-cursor  Ç?captured drop 0if capture then ;
+Åshow-cursor
+   Çfind-cursor  cursor-line 1+ cursor-column 1+ cup  set-cursor ;
+
+Åredraw
+   Ç+buffer reset-cursor
+      reset draw-all number-block
+   show-cursor -buffer ;
+
+
+áInteraction
+Åquit  Ç-1 to ?done   Åignore  Ç;
+Åleft  Çword< ;   Åright  Çword> ;
+
+Ålocate-line  Çlocate-cursor cursor-line ;
+Ålocate-column  Çlocate-cursor cursor-column ;
+Å>line
+   Çlocate-line
+   over > drop if drop ; then
+   ?eob drop if drop ; then
+   word> >line ;
+Ådown  Çlocate-cursor  cursor-column cursor-line
+  Åafter  Ç>line
+  Å>=column
+   Çlocate-column
+   over >= drop if drop ; then
+   ?eob drop if drop ; then
+   word> >=column ;
+
+Å<line
+   Çlocate-line
+   over < drop if drop ; then
+   ?bob drop if drop ; then
+   word< <line ;
+Åup  Çlocate-cursor  cursor-column cursor-line
+  Åbefore  Ç<line
+  Å<=column
+   Çlocate-column
+   over <= drop if drop ; then
+   ?bob drop if drop ; then
+   word< <=column ;
+
+Åkeymaps  Écreate 256 16 * dup allot   Åkeymap  Ékeymaps value
+Ådefault!  Ç0
+Åmap!  Çkeymap !  keymap 8+ !  keymap 16 + to keymap ;
+
+Å(normal)  É0 value   Å(insert)  É0 value
+Ånormal-mode  Ç(normal)   Åmode  Çto keymap  ?end-word ;
+Åinsert-mode  Ç(insert) mode ;
+
+Å(insert-word)  Çinsert-mode insert-word ;
+Åcyan-words    Écyan   Ç(insert-word) ;
+Ågreen-words   Égreen  Ç(insert-word) ;
+Åred-word      Éred    Ç(insert-word) ;
+Åwhite-words   Éwhite  Ç(insert-word) ;
+Åyellow-words  Éyellow Ç(insert-word) ;
+Åbright-cyan-word    Écyan   bright Ç(insert-word) ;
+Åbright-green-word   Égreen  bright Ç(insert-word) ;
+Åbright-red-word     Éred    bright Ç(insert-word) ;
+Åbright-yellow-word  Éyellow bright Ç(insert-word) ;
+
+Ékeymap to (normal)
+   ' cycle               char C ctrl map!
+   ' quit                char Q ctrl map!
+   ' update              char U ctrl map!
+   ' bright-cyan-word    char C      map!
+   ' del<word            char D      map!
+   ' bright-green-word   char G      map!
+   ' bob!                char H      map!
+   ' eob!                char L      map!
+   ' bright-red-word     char R      map!
+   ' del<word            char X      map!
+   ' bright-yellow-word  char Y      map!
+   ' cyan-words          char c      map!
+   ' del>word            char d      map!
+   ' green-words         char g      map!
+   ' left                char h      map!
+   ' down                char j      map!
+   ' up                  char k      map!
+   ' right               char l      map!
+   ' red-word            char r      map!
+   ' white-words         char w      map!
+   ' del>word            char x      map!
+   ' yellow-words        char y      map!
+   ' ignore                      default!
+
+keymap to (insert)
+   ' point-              char B ctrl map!
+   ' del>char            char D ctrl map!
+   ' point+              char F ctrl map!
+   ' normal-mode         esc         map!
+   ' del<char            del         map!
+   ' bright-cyan-word    char C alt  map!
+   ' bright-green-word   char G alt  map!
+   ' bright-red-word     char R alt  map!
+   ' bright-yellow-word  char Y alt  map!
+   ' cyan-words          char c alt  map!
+   ' del>word            char d alt  map!
+   ' green-words         char g alt  map!
+   ' red-word            char r alt  map!
+   ' white-words         char w alt  map!
+   ' yellow-words        char y alt  map!
+   ' self-insert                 default!
+
+Åhandler@  Çnip 8+ @ ;
+Åhandler  Çkeymap
+  Åloop
+   Çdup @ drop 0if handler@ ; then
+      over over @ = drop if handler@ ; then
+   16 + loop ;
+Åkeypress  Çread-key
+Åhandle-key  Çlast-key handler execute ;
+
+
+áMain
+Åloop  Çredraw keypress  ?done drop if ; then  loop ;
+Å(edit)
+   Çblk>buffer
+   save-termios
+   enable-raw
+      0 to ?done
+      clear-screen normal-mode loop
+   reset clear-screen
+   restore-termios ;
+Åedit  Çblk @ push  blk ! (edit)  pop blk ! ;

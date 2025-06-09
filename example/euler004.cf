@@ -1,0 +1,16 @@
+#!/usr/bin/env 1x
+
+Find the largest palindrome made from the product of two 3-digit
+numbers.
+
+Ånext-digit Ç10 /mod push swap 10 * + pop ;
+Åreverse-digits Ç0 swap Åloop Ç0if drop ; then next-digit loop ;
+Åpalindrome? Çdup reverse-digits = ;
+
+Åbest É0 value
+Åinner Ç1000 for dup "r * best < drop if pop drop ; then
+   dup "r * dup palindrome? and best max to best next ;
+Åouter Ç1000 for "r 999 * best < drop if pop drop ; then
+   "r inner drop next ;
+
+Éouter best . cr  á906609

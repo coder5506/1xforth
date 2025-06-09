@@ -1,0 +1,12 @@
+*.dtb
+*.dts
+*.html
+*.log
+*.lst
+*.o
+.DS_Store
+1x
+a.out
+bootstrap/*-*.cf
+file/
+inbox/

@@ -1,0 +1,201 @@
+áCopyright 2022,2023 Eric Sessoms / MIT License
+
+áMinimal aarch64 assembler
+á=========================
+
+áRegister names
+Åx0 Ç$00 ; Åx8  Ç$08 ; Åx16 Ç$10 ; Åx24 Ç$18 ;
+Åx1 Ç$01 ; Åx9  Ç$09 ; Åx17 Ç$11 ; Åx25 Ç$19 ;
+Åx2 Ç$02 ; Åx10 Ç$0a ; Åx18 Ç$12 ; Åx26 Ç$1a ;
+Åx3 Ç$03 ; Åx11 Ç$0b ; Åx19 Ç$13 ; Åx27 Ç$1b ;
+Åx4 Ç$04 ; Åx12 Ç$0c ; Åx20 Ç$14 ; Åx28 Ç$1c ;
+Åx5 Ç$05 ; Åx13 Ç$0d ; Åx21 Ç$15 ; Åx29 Ç$1d ;
+Åx6 Ç$06 ; Åx14 Ç$0e ; Åx22 Ç$16 ; Åx30 Ç$1e ;
+Åx7 Ç$07 ; Åx15 Ç$0f ; Åx23 Ç$17 ; Åx31 Ç$1f ;
+
+áRegister aliases
+Åpsp Éx29 Ç; áParameter stack pointer
+Årsp Éx31 Ç; áReturn stack pointer
+Åxzr Éx31 Ç; áZero register
+
+System registers
+År Éx30 Ç; áTop of return stack
+Ås Éx19 Ç; áSecond-on-stack
+Åt Éx20 Ç; áTop-of-stack
+Åu Éx21 Ç; áUser pointer
+
+áInstruction state
+Åimm   É0 value áImmediate operand
+Åmode  É0 value áAddressing mode
+Åsize É64 value áOperand size in bits
+Åclear áReset instruction state
+   Ç0 to imm 0 to mode 64 to size ; á64-bit operand size
+
+Å#     Çto imm  ; áImmediate operand
+Å)   Ç0 to mode ; áOffset addressing
+Å#)! Ç# Å)! Ç1 to mode ; áPre-indexed addressing
+Å#)+ Ç# Å)+ Ç2 to mode ; áPost-indexed addressing
+
+Å?pre-index  Ç1 mode = ;
+Å?post-index Ç2 mode = ;
+
+Å.d Ç64 to size ; á64-bit doubleword
+Å.w Ç32 to size ; á32-bit word
+Å?64-bit Ç64 size = ;
+Åsf Ç1 swap lshift ?64-bit and ; áSize flag
+
+áAssembler
+Åw, Çhere w! 4 allot ;
+áimm16 Å#svc, Ç# Ç$d4000001 imm 5 lshift Çor Åemit, Çw, clear ;
+ásrc dst Åmov, Ç$2a0003e0 or swap $10 lshift or $1f sf or emit, ;
+
+Åscaled Çimm ?64-bit 1 and 2 or rshift ;
+Åimm7   Çscaled   $7f and ;
+Åimm9   Çimm    $01ff and ;
+Åimm12  Çscaled $0fff and ;
+
+Åstr-postidx Çimm9  $0c lshift or $00000400 or ;
+Åstr-preidx  Çimm9  $0c lshift or $00000c00 or ;
+Åstr-uoffset Çimm12 $0a lshift or $01000000 or ;
+Å(str-common)
+   Ç?pre-index  drop if str-preidx  ; then
+   ?post-index drop if str-postidx ; then str-uoffset ;
+
+Årn! Ç5 lshift or ;
+Åstr,  Ç$b8000000 $1e sf or
+Åstr-common, Çor swap rn! (str-common) emit, ;
+Åstrb, Ç$38000000 str-common, ;
+Åstrh, Ç$78000000 str-common, ;
+
+Åldr,   Ç$b8400000 $1e sf or str-common, ;
+Åldrb,  Ç$38400000 str-common, ;
+Åldrh,  Ç$78400000 str-common, ;
+Åldrsb, Ç$38800000 $16 sf or str-common, ;
+Åldrsh, Ç$78800000 $16 sf or str-common, ;
+Åldrsw, Ç$a8800000 str-common, ;
+
+ádst src2 src1 Åstp, ápre-index  Ç$29800000
+Åstp-common,
+   Ç$1f sf or or swap $0a lshift or swap rn!
+   imm7 $0f lshift or emit, ;
+ásrc dst2 dst1 Åldp, ápost-index Ç$28c00000 stp-common, ;
+
+ádst Åpop, Çt swap mov, Ådrop, Çs t mov, Ånip, Çpsp 8 #)+ s ldr, ;
+ásrc Åpush, Épsp Ç-8 #)! És Çstr, Ét Çs mov, Ét Çmov, ;
+Å2drop, Épsp Ç$10 #)+ És Çt ldp, ;
+
+Åmrs Ç$d5300000 ;
+Åop0 Ç2 - 19 lshift or ;
+Åop1 Ç16 lshift or ;
+Åcrn Ç12 lshift or ;
+Åcrm  Ç8 lshift or ;
+Åop2  Ç5 lshift or ;
+Émacro Åmrs, Éx0 Çor emit, Éx0 Çpush, ; Éforth
+Émrs 3 op0 3 op1 $e crn 0 crm 0 op2 Åcntfrq_el0 Çmrs, ;
+Émrs 3 op0 3 op1 $e crn 0 crm 1 op2 Åcntpct_el0 Çmrs, ;
+
+
+áCompile register words
+á======================
+
+áGeneral-purpose registers
+Åw Éx22 Ç;
+Åx Éx23 Ç;
+Åy Éx24 Ç;
+Åz Éx25 Ç;
+Åa Éx26 Ç; áDefault address register
+Åb Éx27 Ç;
+
+áInstruction state
+Åincr É0 value áAutoincrement
+Åop   É0 value áOperation
+Åreg  Éa value áRegister
+Åsign É0 value áSign extension
+Åsize É8 value áOperand bytes
+Åclear áReset instruction state
+   Ç0 to incr   áNo autoincrement
+   Ç0 to op     áNot compiling
+   Ça to reg    áDefault address register
+   Ç0 to sign   áZero-extend
+   Ç8 to size ; á64-bit operand size
+
+áDefault 0 not compiling
+Åstore Ç1 to op ;
+Åfetch Ç2 to op ;
+
+Émacro
+áDefault 0 no autoincrement
+Å-- Ç1 to incr ; áPre-decrement
+Å++ Ç2 to incr ; áPost-increment
+Å[ Çstore ; áBegin compiling register operation
+Éforth
+
+Åcompiling? Çop 0<> ;
+Åregister Çcompiling? drop if to reg ; then push, ;
+
+Émacro
+Å"r Ér Çregister ; áTop of return stack
+Å"s És Çregister ; áSecond-on-stack
+Å"t Ét Çregister ; áTop-of-stack
+Å"u Éu Çregister ; áUser pointer
+Å"w Éw Çregister ; Å"a Éa Çregister ;
+Å"x Éx Çregister ; Å"b Éb Çregister ;
+Å"y Éy Çregister ;
+Å"z Éz Çregister ;
+Åzx Ç0 to sign ; áZero-extend, default
+Åsx Ç1 to sign ; áSign-extend
+Éforth
+
+Åa-size Ç8 to size ; Ådword? Ç8 size = ; á64-bit cell, default
+Åw-size Ç4 to size ; Åword?  Ç4 size = ; á32-bit word
+Åh-size Ç2 to size ; Åhword? Ç2 size = ; á16-bit halfword
+Åc-size Ç1 to size ; Åbyte?  Ç1 size = ;  á8-bit char
+
+Åstrx, áStore value according to size
+   Çdword? drop if .d str,  ; then
+   word?  drop if .w str,  ; then
+   hword? drop if    strh, ; then strb, ;
+Å(store) áCompile store operation
+   Çcompiling? drop if store ; then Ét Ç) s strx, 2drop, clear ;
+
+Åzx, áLoad value with zero-extension
+   Çdword? drop if .d ldr,  ; then
+   word?  drop if .w ldr,  ; then
+   hword? drop if    ldrh, ; then ldrb, ;
+Å(fetch) áCompile fetch operation
+   Çcompiling? drop if fetch ; then Ét Ç) t zx, clear ;
+
+Émacro
+ Å! Ça-size (store) ;  Å@ Ça-size (fetch) ;
+Åw! Çw-size (store) ; Åw@ Çw-size (fetch) ;
+Åh! Çh-size (store) ; Åh@ Çh-size (fetch) ;
+Åc! Çc-size (store) ; Åc@ Çc-size (fetch) ;
+Éforth
+
+Åpre-decrement?  Ç1 incr = ;
+Åpost-increment? Ç2 incr = ;
+Å?autoincr
+   Çpre-decrement?  drop if size negate #)! ; then
+   post-increment? drop if size #)+          then ;
+
+Åsx, áLoad value with sign-extension
+   Çdword? drop if .d ldr,   ; then
+   word?  drop if    ldrsw, ; then
+   hword? drop if    ldrsh, ; then ldrsb, ;
+Åzx|sx, Çsign drop if sx, ; then zx, ;
+Åfetch, Çreg ?autoincr Éx0 Çzx|sx, Éx0 Çpush, ;
+Åstore, Ét Çx0 mov, reg ?autoincr Éx0 Çstrx, drop, ;
+Åfetch? Çop 2 = ;
+Åfetch|store, Çfetch? drop if fetch, ; then store, ;
+
+Émacro
+Å] Çfetch|store, clear ; áEmit register operation
+Å"r! Ér Çpop, ;
+á"s! is nip
+á"t! is drop
+Å"u! Éu Çpop, ; áIf you dare
+Å"w! Éw Çpop, ; Å"a! Éa Çpop, ;
+Å"x! Éx Çpop, ; Å"b! Éb Çpop, ;
+Å"y! Éy Çpop, ;
+Å"z! Éz Çpop, ;
+Éforth

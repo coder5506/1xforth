@@ -1,0 +1,134 @@
+#+TITLE: Block Editor
+
+The key to using the block editor is to remember that it is
+fundamentally a word-oriented editor.  There are a few
+character-oriented operations as well as a few psuedo-line oriented
+operations, but by and large we're editing in terms of words.
+
+The block editor is used to edit source code in the [[file:images.org][pre-parsed image
+format]].
+
+This document will first review the various word types and then
+explain how the editor displays the words within a block.  Once this
+is clear the editing commands should be easy to remember.
+
+See also [[https://www.greenarraychips.com/home/documents/greg/cf-editor.htm][newer]] and [[http://www.ultratechnology.com/editor/editor.htm][older]] documentation for the original colorForth
+editor.  The 1xforth editor is different primarily in not having a
+restricted character set, and in taking a different approach to shadow
+blocks.
+
+
+* Words
+
+Words in 1xforth source are tagged according to their role, and the
+default display of those tags uses color.  Conventionally we refer to
+the tags by the name of their default display color.
+
+| Color  | Role     | Description                                  |
+|--------+----------+----------------------------------------------|
+| Yellow | Execute  | Interpret at load time                       |
+| Red    | Label    | Define an entrypoint and a dictionary header |
+| Green  | Compile  | Extend the current dictionary entry          |
+| Cyan   | Postpone | Compiled into a macro definition             |
+| White  | Comment  | Ignored                                      |
+
+The editor makes use of one additional color--blue--that is ignored by
+the parser.  Blue words are control characters that influnce the
+display and layout of other words.  Whereas the other colors are true
+Forth words made up of graphic characters, blue words normally appear
+only as whitespace, but they are still words from the perspective of
+our word-oriented editor.
+
+The last color "black" is used for so-called "data" words.  Data words
+are not true Forth words, but a means to provide input to parsing
+words.  As such they may be longer than the system's maximum word
+length and may contain whitespace.  It may help to think of them as
+strings.  They are still words from the editor's perspective.
+
+
+* Display
+
+A block of source code is nothing but a sequence of words, but
+formatting and layout can help to make source more readable and
+understandable.
+
+The editor displays the words of a block using a variable number of
+lines of up to 64-characters each.  The default display lays out words
+sequentially, separated by one space, until a word would wrap around
+the end of a line--at which point the entire word is moved to the
+beginning of the next line.  The editor will never "wrap" a Forth
+word, because Forth words can never exceed 64-characters.  Data words
+will wrap as necessary, with appropriate before and after line breaks.
+
+All of the interesting aspects of display lay in the exceptions to the
+basic layout algorithm.
+
+- Red words normally start a new line, though they can be made to
+  continue on the current line.
+- Blue spaces add an extra space between words, usually to emphasize
+  phrasing.  Explicit spaces are not normally needed.
+- Blue tabs align the next word to the next 16-column tabstop.
+- Blue linefeeds terminate a line.  Note that a linefeed is not
+  necessary before a red word.
+- A blue formfeed terminates the code portion of a block.  The editor
+  will display a formfeed as a horizontal rule between the code and
+  comment (shadow) portions of a block.
+
+The cursor is considered always to be positioned between words and is
+displayed on the first character of the next word.  Most commands
+operate on the next word.  The cursor will only appear on whitespace
+when it is on a blue word or at the end of the block.
+
+
+* Normal Mode
+
+Colors enter insert mode.
+
+| Key    | Command         | Description                                         |
+|--------+-----------------+-----------------------------------------------------|
+| Ctrl+C | cycle           | Change color of word-at-point white/yellow/green    |
+| Ctrl+Q | quit            | Exit editor without writing changes to block        |
+| Ctrl+U | update          | Write edit buffer back to block                     |
+| C      | bright cyan     | Enter a hexadecimal literal in cyan                 |
+| D      | delete backward | Delete previous word without adding it to clipboard |
+| G      | bright green    | Enter a hexadecimal literal in green                |
+| H      | home            | Move to beginning of buffer                         |
+| L      | last            | Move to end of buffer                               |
+| R      | bright red      | Add a red word not starting a new line              |
+| X      | cut backward    | Cut previous word to clipboard                      |
+| Y      | bright yellow   | Enter a hexadecimal literal in yellow               |
+| c      | cyan            | Enter postponed words                               |
+| d      | delete forward  | Delete next word without adding it to clipboard     |
+| g      | green           | Enter compiled words                                |
+| h      | left            | Move to previous word                               |
+| j      | down            | Approximate moving down one line                    |
+| k      | up              | Approximate moving up one line                      |
+| l      | right           | Move to next word                                   |
+| p      | paste           | Enter clipboard at point                            |
+| r      | red             | Add one red word, then add green words              |
+| w      | white           | Enter comment words                                 |
+| x      | cut forward     | Cut next word to clipboard                          |
+| y      | yellow          | Enter interpreted words                             |
+
+
+* Insert Mode
+
+Most characters are self-inserting.
+
+| Key    | Command         | Description                                     |
+|--------+-----------------+-------------------------------------------------|
+| Ctrl+B | char left       | Move backward one character                     |
+| Ctrl+D | delete forward  | Delete next character                           |
+| Ctrl+F | char right      | Move forward one character                      |
+| ESC    | normal          | Return to normal mode                           |
+| BS     | delete backward | Delete previous character                       |
+| Alt+C  | bright cyan     | Enter a hexadecimal literal in cyan             |
+| Alt+G  | bright green    | Enter a hexadecimal literal in green            |
+| Alt+R  | bright red      | Add a red word not starting a new line          |
+| Alt+Y  | bright yellow   | Enter a hexadecimal literal in yellow           |
+| Alt+c  | cyan            | Enter postponed words                           |
+| Alt+d  | delete forward  | Delete next word without adding it to clipboard |
+| Alt+g  | green           | Enter compiled words                            |
+| Alt+r  | red             | Add one red word, then add green words          |
+| Alt+w  | white           | Enter comment words                             |
+| Alt+y  | yellow          | Enter interpreted words                         |

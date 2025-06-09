@@ -1,0 +1,8 @@
+#!/usr/bin/env 1x
+
+What is the largest prime factor of the number 600851475143?
+
+Åstep Çover over mod drop 0if tuck / swap ; then 2 + ;
+Åloop Çover over dup * < drop if drop ; then step loop ;
+
+É600851475143 3 loop . cr  á6857

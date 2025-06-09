@@ -1,0 +1,133 @@
+áCopyright 2022,2023 Eric Sessoms / MIT License
+
+áUse I/O builtins
+á----------------
+áxt "<spaces>name" Åis Çword find defer! ;
+Åemit   Çdefer É' %emit%   is emit
+Åexpect Çdefer É' %expect% is expect
+Åkey    Çdefer É' %key%    is key
+Åquery  Çdefer É' %query%  is query
+Åtype   Çdefer É' %type%   is type
+
+
+áCompiler words
+á--------------
+Émacro Å2push Üswap push push Ç; Å2pop Üpop pop swap Ç; Éforth
+á2push/2pop preserve the stack order of double-word items.
+
+Émacro
+Åfor Çhere >xp Ü1- +if push Çswap ; Ånext Üpop compile, ; then drop Ç;
+áfor/next provide a simple pre-decrement loop.
+Éforth
+
+Å(create) áa-addr Çpop aligned <xp ;
+Åcreate Ü(create) Çalign ;
+Åvariable Ü(create) Çalign , ;
+
+Å(value) áx Çpop aligned <xp @ ;
+áx Åvalue Ü(value) Çalign , ;
+Émacro áx "<spaces>name" Åto Ç' >body <xp Üliteral ! Ç;
+Éforth áx "<spaces>name" Åto Ç' >body <xp ! ;
+
+
+áString utilities
+á----------------
+ác-addr1 u1 n Å/string ác-addr2 u2 Çover min tuck - swap u+ ;
+áAdvance string
+
+ác-addr Å<cstring ác-addr u Çdup áConvert from "C" string
+ác-addr Åstrlen áu Çdup Åloop Çdup c@ drop 0if swap- ; then 1+ loop ;
+áFind length of NUL-terminated string
+
+ác-addr u Å>cstring ác-addr'
+áTranslate a counted string to a NUL-terminated "C" string.
+áThis may be a no-op, if the string is already NUL-terminated,
+otherwise it copies the string data to the dictionary.
+   Çover over + c@ drop 0if drop ; then
+   here swap over over 2push move  2pop over + 0 swap c! ;
+
+
+áString literals
+á---------------
+Åprint? Ç$20 $7f within ;
+
+Åcurrent ác-addr Çsource drop ;
+Åcurrent@ ác-addr Çcurrent >in @ + ;
+ác-addr Åcurrent! Çcurrent - >in ! ;
+ác-addr1 c1 Åloop ác-addr2 c2
+   Çover c@ dup print? drop 0if nip ; then
+      over = push 1 u+ pop drop if ; then
+   loop ;
+ác Åparse ác-addr u
+   Çcurrent@ swap over over loop
+   push swap pop <> drop if drop drop 0 0 ; then
+   dup current! 1- over - ;
+
+áseed Å<# á..# seed Ç0 swap ; áInitialize empty sequence on stack
+á..# seed val Åhold á..# seed Çswap push swap 1+ pop ;
+áPush VAL onto variable length stack sequence ..#
+
+á..# u1 Åbyte á..# u2 Ç$100 /mod swap hold ;
+áu Åbytes á..# Ç<# byte Åloop Ç0if drop ; then byte loop ;
+áGenerate MSB byte sequence for value U
+áu Åcount, áAppend variably-encoded length to dictionary
+   Çdup $80 < drop if c, ; then
+áu Åbytes, Çbytes dup $80 or c, for c, next ;
+áWrite length as MSB byte sequence.  First byte is length of
+sequence with sign-bit set to indicate variable encoding.
+
+án Åalloc áaddr Çhere swap allot ; áReserve next N bytes
+Å(sliteral) ác-addr u Çpop count over over + 1+ aligned push ;
+áPush dictionary string onto stack, skip over string data
+ác-addr u Åsliteral áEmbed string in dictionary
+   Ü(sliteral) Çdup count, dup alloc swap move 0 c, align ;
+áN.B., final NUL is not included in length of string
+
+
+áBasic definitions
+á-----------------
+Åbl Ç$20 ; áBlank
+Åcr Ç$d emit $a emit ; áCarriage Return
+ Å" ác-addr u Échar " Çparse ;
+Å." Ç" type Åspace Ébl Çemit ;
+Åspaces Çfor space next ;
+
+Émacro
+É' "  Å" Çcompile, sliteral ;
+É' " Å." Çcompile, sliteral Ütype space Ç;
+Éforth
+
+án1 n2 n3 Å*/ án-ratio Ç*/mod nip ;
+án1 n2 Å/ án-quot Ç/mod nip ;
+án1 n3 Åmod án-rem Ç/mod drop ;
+
+á..# Å#> Çfor emit next ;
+áu Ådigit ác Çdup 9 > $27 and + Échar 0 Ç+ ;
+á..# u Å# á..# u-quot Çbase @ /mod swap digit hold ;
+á..# u Å#s á..# Ç# Ç0if drop ; then #s ;
+á..# n Åsign á..# Ç-if Échar - Çhold then drop ;
+
+án Å. Çdup push abs <# #s pop sign #> space ;
+Å0s Çfor Échar 0 Çemit next ;
+án Åu. Ç0 áu n Åu.r Çpush <# #s dup pop swap- 0s #> space ;
+
+áaddr count Ådump
+   Çbase @ push hex
+      for dup 1+ swap c@ 2 u.r next drop
+   pop base ! ;
+
+
+áBuffered output
+á---------------
+Å?buffer É0 value
+Åflush Çtib #tib @ type 0 #tib ! ; áOutput buffered data
+Å+buffer Ç-1 to ?buffer ; áBegin buffering
+Å-buffer Çflush 0 to ?buffer ; áEnd buffering
+
+Åqflush Ç#tib $1000 >= drop if flush then ;
+Å(next) Çtib #tib @ + ;
+Å(emit) Ç(next) c! 1 #tib +! qflush ;
+Å(type) Çtuck (next) swap move #tib +! qflush ;
+
+á' emit áemit á?buffer drop if (emit) ; then compile, ;
+á' type átype á?buffer drop if (type) ; then compile, ;

@@ -1,0 +1,11 @@
+#!/usr/bin/env 1x
+
+Find the sum of all even-valued Fibonacci numbers whose values
+do not exceed four million.
+
+fib_n ƒ0 value fib_n+1 ƒ1 value
+fib ‚fib_n fib_n+1 dup to fib_n over + to fib_n+1 ;
+even? ‚1 and 0= ;
+loop ‚fib dup 4000000 > drop if drop ; then
+   dup even? and + loop ;
+ƒ0 loop . cr  ‡4613732

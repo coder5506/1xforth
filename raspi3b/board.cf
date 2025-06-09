@@ -1,0 +1,444 @@
+áCopyright 2022,2023 Eric Sessoms / MIT License
+
+Åputs Çfor dup 1+ swap c@ emit next drop ; É' puts is type
+
+Åuart É0 value áPL011 PrimeCell UART
+
+Åfr  Ç$18 uart + ; áFlag Register
+Åfr? Çfr c@ and 0<> ;
+Å?tx-full  Ç$20 fr? ;
+Å?rx-empty Ç$10 fr? ;
+
+Ådr Ç$0 uart + ; áData Register
+Å0wait Çdup execute drop 0if drop ; then 0wait ;
+Åputc É' ?tx-full  Ç0wait dr c! ;
+Ågetc É' ?rx-empty Ç0wait dr c@ ;
+
+Åibrd Ç$24 uart + ; áInteger Baud-Rate Divisor
+Åfbrd Ç$28 uart + ; áFractional Baud-Rate Divisor
+Åuart-clock Çdefer
+Åmode-x Ç16 / ;
+Åbaud! Çuart-clock mode-x
+   128 *  swap /  128 /mod  ibrd w!  1+ 2/ fbrd w! ;
+
+Åbit Ç1 swap lshift ;
+Ålcrh Ç$2c uart + ; áLine Control Register
+Åfifo-en É4 bit Ç; áEnable FIFOs
+Å8n1 Ç$e0 ;
+É8n1 Å8n1 Éfifo-en or Çlcrh w! ;
+
+Åuart-cr Ç$30 uart + ; áControl Register
+Årx-en   É9 bit Ç; áReceive Enable
+Åtx-en   É8 bit Ç; áTransmit Enable
+Åuart-en É0 bit Ç; áUART Enable
+Ådisable Ç0 uart-cr w! ;
+Åenable Érx-en tx-en or uart-en or Çuart-cr w! ;
+
+Åicr Ç$44 uart + ; áInterrupt Clear Register
+Åclear-irqs Ç$2ff icr w! ; áMask all
+
+Åinit Çdisable 115200 baud! clear-irqs 8n1 enable ;
+
+Åmmio Ç$3f000000 ; áRaspberry Pi 3 physical address
+Åuart0 É$201000 mmio + Çto uart ;
+
+
+Å(alt) Çpush push 7 "r lshift invert and pop pop swap lshift or ;
+Åalt0 Ç10 - 3 * Å(alt0) Ç4 (alt) ;
+Åalt5 Ç10 - 3 * Å(alt5) Ç2 (alt) ;
+
+Ågpio  É$200000 mmio + Ç; áGeneral Purpose I/O
+Ågpfsel1    É$4 gpio + Ç; áGPIO Function Select 1
+Ågppud     É$94 gpio + Ç; áGPIO Pin Pull-up/down Enable
+Ågppudclk0 É$98 gpio + Ç; áGPIO Pin Pull-up/down Enable Clock 0
+
+Ådelay Ç150 Å(delay) Ç1- -if drop ; then (delay) ;
+áWait 150 clock cycles to setup/hold control register
+Åassert-clock
+   Ç0 Égppud Çw!  delay  Égppudclk0 Çw!  delay  0 Égppudclk0 Çw! ;
+
+Åuart0-gpio
+   Égpfsel1 Çw@  14 alt0  15 alt0  Égpfsel1 Çw!
+   14 bit  15 bit or  assert-clock ;
+
+Åuart0-init Çuart0-gpio uart0 init ;
+Åuart0-putc Çuart0 putc ;
+Åuart0-getc Çuart0 getc ;
+
+
+áVideocore MBOX
+Åmbox-base É$b880 mmio + Ç;
+Åmbox-read    É$0 mbox-base + Ç;
+Åmbox-status É$18 mbox-base + Ç;
+Åmbox-write  É$20 mbox-base + Ç;
+
+áMBOX Properties
+Åmbox-empty Ç$40000000 ; ámbox-status
+Åmbox-full  Ç$80000000 ;
+
+Åmbox-request         Ç$0 ;
+Åmbox-response Ç$80000000 ;
+
+Åmbox-ch-prop  Ç8 ;
+Åmbox-tag-last Ç0 ;
+Åmbox-tag-getclockrate Ç$30002 ;
+
+Åclock-id-emmc Ç1 ;
+Åclock-id-uart Ç2 ;
+
+Å(wait) Çdup Émbox-status Çw@ and drop 0if drop ; then (wait) ;
+ábuf ch Åmbox-call áf
+   Çor  Émbox-full Ç(wait)  Émbox-write Çw!
+   Émbox-empty Ç(wait)  Émbox-read Çw@  Émbox-response Ç= ;
+
+Émacro
+Åsave-dictionary Ühere pop swap push push Ç;
+Årestore-dictionary Üpop pop dp ! push Ç;
+Éforth
+
+Åaligned/4 Ç4 Å(aligned) Çtuck 1- + swap negate and ;
+Åalign/16 Çhere 16 (aligned) dp ! ;
+
+Åtag{
+   Çsave-dictionary áStart of tag
+     Çw,            áu32 tag identifier
+   Ç0 w,            áu32 value size in bytes
+   Ç0 w, ;          áu32 request code
+
+Å}tag
+   Çhere                    áCurrent dp
+   Çrestore-dictionary here áStart of tag
+   Çover over -
+   swap 4 + w!             áu32 value size in bytes
+   Çaligned/4 dp ! ;        áu8... padding
+
+Åbuffer{
+   Çalign/16
+   save-dictionary   áStart of buffer
+   Ç0 w,              áu32 buffer size in bytes
+   Çmbox-request w, ; áu32 request code
+
+Å}buffer
+   Çmbox-tag-last w,       áu32 end tag
+   Çhere
+   restore-dictionary here
+   swap over -  over w! ; áu32 buffer size in bytes
+
+Ågetclockrate
+   Çsave-dictionary buffer{
+      Émbox-tag-getclockrate Çtag{
+        w,         áu32 clock id
+        Çhere  0 w, áu32 clock rate
+      Ç}tag
+   }buffer restore-dictionary
+   Émbox-ch-prop Çmbox-call drop
+   w@ ;
+
+Å(uart-clock) Éclock-id-uart Çgetclockrate ;
+É' (uart-clock) is uart-clock
+
+
+Åread-line Ç?ok 0 #tib ! 131 >tib +yellow
+Åloop Ç?done drop if submit ; then keypress loop ;
+
+Åmain Ç" Ain't no thing like me, except me!" type cr ;
+
+Éuart0-init
+' uart0-putc is emit
+' uart0-getc is key
+' read-line  is query
+
+
+áRandom Number
+Åw-andn! Çtuck w@ swap invert and swap w! ;
+Åw-or!   Çtuck w@ or swap w! ;
+Årng     É$104000 mmio + Ç;
+Årng-ctrl      É$0 rng + Ç;
+Årng-status    É$4 rng + Ç;
+Årng-data      É$8 rng + Ç;
+Årng-int-mask É$10 rng + Ç;
+
+Årand-init
+   Ç$40000 rng-status w!
+   1 rng-int-mask w-or!
+   1 rng-ctrl w-or! ;
+Érand-init
+
+Åwait Çrng-status w@ 24 rshift drop if ; then wait ;
+Årand Çwait rng-data w@ ;
+
+áSystem Timer
+Åsystmr-lo É$3004 mmio + Ç;
+Åsystmr-hi É$3008 mmio + Ç;
+
+Åsystmr
+   Çsystmr-hi w@  systmr-lo w@  swap
+   dup systmr-hi w@ = drop if 32 lshift or ; then
+   drop drop systmr ;
+Åusec Çsystmr + Åloop Çdup systmr <= drop if drop ; then loop ;
+Åmsec Ç1000 * usec ;
+
+
+Åemmc      É$300000 mmio + Ç;
+Åblksizecnt É$4 emmc + Ç; áBlock Size and Count
+Åarg1       É$8 emmc + Ç; áArgument
+Åcmdtm      É$c emmc + Ç; áCommand and Transfer Mode
+Åresp0     É$10 emmc + Ç; áResponse bits  31 ..  0
+Ådata      É$20 emmc + Ç; áData
+Åstatus    É$24 emmc + Ç; áStatus
+Åcontrol0  É$28 emmc + Ç; áHost Configuration
+Åcontrol1  É$2c emmc + Ç; áHost Configuration
+Åinterrupt É$30 emmc + Ç; áInterrupt Flags
+Åirpt-mask É$34 emmc + Ç; áInterrupt Flag Enable
+Åirpt-en   É$38 emmc + Ç; áInterrupt Generation Enable
+
+áCommand and Transfer Mode
+Åtype-abort É3 Åcmd-type Énop Ç22 lshift ;
+Åisdata     É21 bit Ç; áCommand involves data transfer
+Åcrcchk-en  É19 bit Ç; áCheck response CRC
+Årspns-type Ç16 lshift ;
+Årspns-48b É3 rspns-type Ç; áExpect  48-bit response using busy
+Årspns-48  É2 rspns-type Ç; áExpect  48-bit response
+Årspns-136 É1 rspns-type Ç; áExpect 136-bit response
+Årspns-no  É0 rspns-type Ç; áExpect no response
+Ådat-dir-ch É4 bit Ç; áTransfer from card to host
+Ådat-dir-hc    Ç$0 ;
+
+áStatus Register
+Ådat3 É23 bit Ç;
+Ådat2 É22 bit Ç;
+Ådat1 É21 bit Ç;
+Ådat0 É20 bit Ç;
+Ådat-level0 Édat3 dat2 or dat1 or dat0 or Ç;
+Ådat-inhibit É1 bit Ç; áData lines still in use
+Åcmd-inhibit É0 bit Ç; áCommand line still in use
+
+Host Control 1
+Åsrst-data É26 bit Ç; áReset data circuit
+Åsrst-cmd  É25 bit Ç; áReset command circuit
+Åsrst-hc   É24 bit Ç; áReset host circuit
+Åsrst-mask Ésrst-data srst-cmd or srst-hc or Ç;
+Åtounit-dis Ç$f0000 ; áData timeout unit exponent (mask)
+Åtounit-max Ç$e0000 ; áData timeout unit exponent (maximum value)
+Åclk-en     É2 bit Ç; áSD clock enable
+Åclk-stable É1 bit Ç; áSD clock stable
+Åclk-intlen É0 bit Ç; áInternal clock enable
+
+áInterrupt Register
+Åint-err  É15 bit Ç; áAn error has occurred
+Åcard-int  É8 bit Ç; áCard mode interrupt request
+Åread-rdy  É5 bit Ç; áData register can be read
+Åwrite-rdy É4 bit Ç; áData register can be written
+Ådata-done É1 bit Ç; áData transfer has finished
+Åcmd-done  É0 bit Ç; áCommand has finished
+
+áClock
+Åbase-clock-hz Çclock-id-emmc getclockrate ;
+
+
+áPower
+Ågetpowerstate
+   Çsave-dictionary buffer{
+      $20001 tag{
+         w,         áu32 device id
+         Çhere  0 w, áu32 state
+      Ç}tag
+   }buffer restore-dictionary
+   mbox-ch-prop mbox-call drop
+   w@ 3 and ;
+
+Åsetpowerstate
+   Çsave-dictionary buffer{
+      $28001 tag{
+         w,            áu32 device id
+         Çhere  swap w, áu32 state
+      Ç}tag
+   }buffer restore-dictionary
+   mbox-ch-prop mbox-call drop
+   w@ drop ;
+
+Åpower-off? Çgetpowerstate 0= ;
+Åpower-on?  Çgetpowerstate 1 = ;
+
+Åsd-card Ç0 ;
+
+áBit 1 set means "wait", so we don't worry about timing
+Åpower-off
+   Çdup power-on?  drop 0if drop ; then 2 swap setpowerstate ;
+Åpower-on
+   Çdup power-off? drop 0if drop ; then 3 swap setpowerstate ;
+Åpower-cycle Çdup power-off power-on ;
+
+
+áPre-init
+Åreset Çcontrol1 w@
+   Ésrst-hc Çor Éclk-en clk-intlen or invert Çand control1 w! ;
+Åloop Ésrst-mask Çcontrol1 w@ and drop 0if ; then loop ; áTODO
+
+á10-bit clock assumes HCI version 3 or greater
+Åclock-divisor Çbase-clock-hz swap
+Å/ceil Ç/mod swap drop if 1+ then ;
+Åtarget-divisor Çclock-divisor 2 /ceil 1 $3ff
+Åclip Çpush max pop min ;
+Å10-bit-clock Çtarget-divisor
+Åswizzle Çdup $ff and 8 lshift swap $300 and 2 rshift or ;
+
+Åwait Çdup execute if nip ; then drop wait ;
+Å(clock-stable) Çcontrol1 w@
+   dup Éclk-intlen Çand 0= swap Éclk-stable Çand or ;
+Åclock-stable É' (clock-stable) Çwait drop ;
+
+Ådisable-sd-clock Éclk-en Çcontrol1 w-andn! ;
+Åenable-sd-clock  Éclk-en Çcontrol1 w-or! control1 w@ drop ;
+
+Å0status Çdup status w@ and drop 0if drop ; then 0status ;
+Åuninhibited Édat-inhibit cmd-inhibit or Ç0status ;
+Åclock-mask É$3ff 6 lshift Ç;
+Åclock! Çuninhibited 10-bit-clock disable-sd-clock 2 msec
+   control1 w@ Éclock-mask invert Çand or control1 w!
+   2 msec enable-sd-clock clock-stable ;
+
+áSD Clock Frequencies
+Åslow-clock     Ç400000 clock! ; áIdentification frequency
+Ånormal-clock Ç25000000 clock! ;
+
+Åinterrupt! Çinterrupt w! ;
+Åinterrupt@ Çinterrupt w@ ;
+Åclear-interrupts Çinterrupt@ interrupt! ;
+Ådisable-interrupts
+   Ç0 irpt-en w!  clear-interrupts
+   Écard-int invert Çirpt-mask w! ;
+
+Åenable-int-clock Çcontrol1 w@
+   Étounit-dis invert Çand Étounit-max clk-intlen or Çor
+   control1 w! ;
+Åpre-init
+áAfter power-on, card is running at 400KHz with 3.3V signalling,
+so we configure host controller to match.
+   Çsd-card power-cycle reset slow-clock enable-int-clock
+   disable-interrupts ;
+
+
+áInit
+Åinterrupt
+   Çdup int-err or interrupt@ and drop if interrupt! ; then
+   interrupt ;
+
+Åcommand
+   Çcmd-inhibit 0status
+   clear-interrupts
+   swap arg1 w! cmdtm w!
+   cmd-done interrupt ;
+
+Åcmd Ç24 lshift ; áCommand index
+Åcommand' Çor command ;
+Åbusy Édat-inhibit Ç0status ;
+Åresp Çcommand' Åresp@ Çresp0 w@ ;
+Årespb Çcommand' busy resp@ ;
+
+Åresp-none Érspns-no Çcommand' ;
+Åresp-r1 Åresp-r6 Åresp-r7 Érspns-48 crcchk-en or Çresp ;
+Åresp-r1b Érspns-48b crcchk-en or Çrespb ;
+Åresp-r2 Érspns-136 crcchk-en or Çresp ;
+Åresp-r3 Érspns-48  Çresp ;
+
+Åcmd0 É0 cmd Çresp-none ; á>idle
+Ågo-idle Ç0 cmd0 ; áPut card into default idle state
+
+Åcmd8 É8 cmd Çresp-r7 ; áidle>idle
+Åsend-if-cond Çcmd8 ; áSend Interface Condition Command
+
+Åstd-voltage Ç$100 ; á2.7-3.6V
+Åcheck-voltage Ç$a3 std-voltage or dup send-if-cond $fff and = ;
+
+Åcmd55 É55 cmd Çresp-r1 ; áidle>idle
+Åacmd Çcmd 0 cmd55 drop ;
+Åsend-op-cond Ç41 acmd resp-r3 ; áidle>ready
+
+Åready É31 bit Ç;
+Åhcs   É30 bit Ç; áHigh Capacity Support
+Ås18   É24 bit Ç; áSwitching to 1.8V
+Åvoltage-window Ç0 send-op-cond ;
+
+Åhcs? Éhcs Çand 0<> ;
+Ås18? És18 Çand 0<> ;
+
+Åinit-voltage Çvoltage-window s18 or
+Åloop
+   Çdup send-op-cond dup ready and drop if nip ; then drop loop ;
+
+Åcmd11 É11 cmd Çresp-r1 ; áready>ready
+Åvoltage-switch Ç0 cmd11 drop ;
+
+Åsettle-lo Ç0
+Åsettle
+   Çstatus w@ dat-level0 and over = drop if drop ; then
+   settle ;
+Åsettle-hi Çdat-level0 settle ;
+
+Åenable-1.8v É8 bit Çcontrol0 w-or! ;
+Åcheck-1.8v É8 bit Çcontrol0 w@ and ;
+Åswitch-voltage
+   Çnormal-clock 5 msec voltage-switch disable-sd-clock settle-lo
+   enable-1.8v 5 msec check-1.8v drop 0if ; then
+   enable-sd-clock 1 msec settle-hi ;
+
+Åcmd2 É2 cmd Çresp-r2 ; áready>ident
+Åall-send-cid Ç0 cmd2 drop ;
+
+Åcard-rca É0 value áRelative Card Address
+Åcard-rca' Çcard-rca 16 lshift ;
+
+Åread-relative-addr Ç16 rshift $ffff and to card-rca ;
+
+Åcmd3 É3 cmd Çresp-r6 Ç; áident>stby
+Åsend-relative-addr Ç0 cmd3 read-relative-addr ;
+
+Åcmd7 É7 cmd Çresp-r1b ; ástby>tran
+Åselect-card Çcard-rca' cmd7 drop ;
+
+Åcard-sdhc É0 value áSecure Digital High Capacity
+Ålba Çcard-sdhc drop if 512 * then ; áLogical Block Address
+
+Å?sd-init Çcard-rca drop if ; then
+Åsd-init
+   Çpre-init go-idle
+   check-voltage drop 0if ; then
+   init-voltage dup hcs? to card-sdhc
+   s18? drop if switch-voltage then
+   all-send-cid send-relative-addr select-card ;
+
+áN.B., not resp-r1, this is an abort we don't wait on data
+Åcmd12 É12 cmd type-abort or Çresp-r1b ;
+Åstop-transmission Ç0 cmd12 drop ;
+
+Åread-status Ç9 rshift $f and ;
+Åcmd13 É13 cmd Çresp-r1 ;
+Åsend-status Çcard-rca' cmd13 read-status ;
+
+Å0abort Çdrop 0if abort then ;
+Å(data-mode) Çsend-status
+   dup 3 = drop if drop select-card ; then
+   dup 4 = drop if drop ; then
+   dup 5 = drop if drop stop-transmission ; then
+   drop sd-init ;
+Ådata-mode Ç(data-mode) send-status 4 = 0abort ;
+
+Åblocksize! É16 bit Çor blksizecnt w! ;
+Åread-block Ç"a! 128 for data w@ [ w! ++ ] next ;
+Ådata-read Éisdata dat-dir-ch or Ç;
+Åcmd17 É17 cmd data-read or Çresp-r1 ;
+Åread-single Çlba cmd17 drop Éread-rdy Çinterrupt read-block ;
+Åsd-read Çdata-mode 512 blocksize! read-single ;
+
+Åwrite-block Ç"a! 128 for [ w@ ++ ] data w! next ;
+Ådata-write Éisdata dat-dir-hc or Ç;
+Åcmd24 É24 cmd data-write or Çresp-r1 ;
+Åwrite-single Çlba cmd24 drop Éwrite-rdy Çinterrupt write-block ;
+Åsd-write
+   Çdata-mode 512 blocksize! write-single Édata-done Çinterrupt ;
+
+Ésd-init
+Épad 0 sd-read pad 512 dump cr
+Épad 0 sd-write
+Épad 0 sd-read pad 512 dump cr

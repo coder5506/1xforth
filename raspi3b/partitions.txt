@@ -1,0 +1,2 @@
+label: dos
+start=8192, type=c

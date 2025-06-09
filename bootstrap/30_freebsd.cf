@@ -1,0 +1,21 @@
+‡Copyright 2022,2023 Eric Sessoms / MIT License
+
+at_fdcwd ‚-100 ;
+map_anon ‚$1000 ;
+ms_sync ‚0 ;
+
+‡Terminal support
+
+‡tty(4) terminal ioctls
+tiocgeta   ‚$402c7413 ; ‡Get current serial port settings
+tiocgwinsz ‚$40087468 ; ‡Get window size
+tiocseta   ‚$802c7413 ; ‡Set current serial port settings
+tcgets ƒtiocgeta ‚; ‡Aliases for Linux compatibility
+tcsets ƒtiocseta ‚;
+
+‡Types used in termios structure
+cc_t     ‚1 ; ‡unsigned char
+speed_t  ‚4 ; ‡unsigned int
+tcflag_t ‚4 ; ‡unsigned int
+
+nccs    ‚20 ; ‡Number of control characters

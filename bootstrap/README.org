@@ -1,0 +1,29 @@
+#+TITLE: Bootstrap
+
+Most of the Forth bootstrap code is common across platforms, so here
+we try to organize into shared source files.  It is unfortunately a
+bit of a mess.
+
+These files are shared.
+
+- [[file:10_intro.cf][=10_intro.cf=]] Essential primitives needed by the assemblers
+- [[file:20_aarch64.cf][=20_aarch64.cf=]] Assembler and register words for Aarch64
+- [[file:20_x86_64.cf][=20_x86_64.cf=]] Assembler and register words for X64
+- [[file:30_darwin.cf][=30_darwin.cf=]] Things peculiar to MacOS
+- [[file:30_freebsd.cf][=30_freebsd.cf=]] Things peculiar to FreeBSD
+- [[file:30_linux.cf][=30_linux.cf=]] Things peculiar to Linux
+- [[file:35_bsd.cf][=35_bsd.cf=]] BSD-y things shared by MacOS and FreeBSD
+- [[file:40_posix.cf][=40_posix.cf=]] POSIX-y things shared by the BSDs and Linux
+- [[file:50_bootstrap.cf][=50_bootstrap.cf=]] Shared by all platforms
+
+These files define the available targets.
+
+- [[file:darwin-aarch64.cf.m4][=darwin-aarch64.cf.m4=]] MacOS on Apple silicon
+- [[file:darwin-x86_64.cf.m4][=darwin-x86_64.cf.m4=]] MacOS on Intel
+- [[file:freebsd-x86_64.cf.m4][=freebsd-x86_64.cf.m4=]] FreeBSD on Intel
+- [[file:linux-aarch64.cf.m4][=linux-aarch64.cf.m4=]] Linux on Arm
+- [[file:linux-x86_64.cf.m4][=linux-x86_64.cf.m4=]] Linux on Intel
+
+The bare-metal builds include the "Linux" bootstraps, but this is
+harmless because it only defines a few system calls that are never
+used.

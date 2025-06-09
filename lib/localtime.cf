@@ -1,0 +1,134 @@
+‡Copyright 2022,2023 Eric Sessoms / MIT License
+
+?execute ‚0if drop ; then execute ; ƒ' empty ?execute empty ƒmarker
+
+hours/day ‚24 ;
+mins/hour secs/min ‚60 ;
+mins/day  ƒmins/hour hours/day * ‚;
+secs/hour ƒsecs/min  mins/hour * ‚;
+secs/day  ƒsecs/hour hours/day * ‚;
+us/sec ‚1000000 ;
+
+sys_gettimeofday ‚116 ; ‡MocOS
+gettimeofday ƒsys_gettimeofday ‚2/syscall ;
+0timeval ‚align here 0 , ‡tv_sec ‚0 , ‡tv_usec ‚; ‡struct timeval
+0timezone ‡struct timezone
+   ‚align here 0 w, ‡tz_minuteswest ‚0 w, ‡tz_dsttime ‚;
+
+unix ƒsecs/day ‚-11017 * ;
+‡Mar 1, 2000 is 11,017 days after Jan 1, 1970
+
+‡secs <unix ‡ts ƒunix ‚+ us ‚1000000 * ;
+<timeval ‚dup @ <unix swap 8+ @ + ;
+
+current-time
+   ‚here push  0timeval dup 0timezone gettimeofday drop  pop dp !
+   <timeval ;
+
+ƒalign here
+‡Number of days in each month, March through Februrary
+   ƒ31 c, 30 c, 31 c, 30 c, 31 c, 31 c, ‡Mar .. Aug
+   ƒ30 c, 31 c, 30 c, 31 c, 31 c, 28 c, ‡Sep .. Feb
+rot-mon-days ƒnop ‚+ c@ ; ‡Rotated month-days
+
+‡rot-mon year <rot-mon/year ‡mon year'
+‡Decode rotated month and year
+   ‚over 10 >= drop if -9 u+ 2001 + ; then 3 u+ 2000 + ;
+
+‡days days>rot-mon ‡day rot-mon
+‡Given days since Mar 1 (start of current rotated year)
+   ‚0 push loop ‚"r 11 = drop if 1+ pop ; then
+   ‚"r rot-mon-days over over < drop if drop 1+ pop ; then -
+   pop 1+ push loop ;
+
+years>days ‡Number of days in so many years
+   ‚dup  365 *
+   over   4 / + ‡Adjust for number of leap years
+   ‚over 100 / -
+   swap 400 / + ;
+
+/mod3max ‚over over / 3 min dup push * - pop ;
+‡b/c 4X-years have more days than X-years 4 times
+
+‡days days>years ‡remaining years
+‡Number of years in so many days
+   ƒ400 years>days ‚/mod     400 *       push
+   ƒ100 years>days ‚/mod3max 100 * pop + push
+     ƒ4 years>days ‚/mod       4 * pop + push
+     ƒ1 years>days ‚/mod3max       pop + ;
+
+‡days days>date ‡day mon year
+‡Given days since Mar 1, 2000
+   ‚days>years push days>rot-mon pop <rot-mon/year ;
+
+‡secs secs>time ‡sec min hour
+Decode time from seconds since midnight
+   ƒsecs/hour ‚/mod push ƒsecs/min ‚/mod pop ;
+
+   ƒ0 ts ƒvalue ‡Current timestamp
+Representation is microseconds from midnight Wed, Mar 1, 2000.
+Because that fits comfortably in 64-bits.
+us   ‚ts >us   ƒus/sec ‚mod ;            ‡Microseconds
+secs ‚ts >secs ƒus/sec ‚/ ƒsecs/day ‚mod ; ‡Seconds after midnight
+time ‚ts >time ‚>secs secs>time ;       ‡Time of day
+hour ‚ts >hour ‚>time nip nip ;
+min  ‚ts >min  ‚>time drop nip ;
+sec  ‚ts >sec  ‚>time drop drop ;
+days ‚ts >days ƒus/sec ‚/ ƒsecs/day ‚/ ;   ‡Days since Mar 1, 2000
+date ‚ts >date ‚>days days>date ;
+year ‚ts >year ‚>date nip nip ;
+mon  ‚ts >mon  ‚>date drop nip ;
+day  ‚ts >day  ‚>date drop drop ;
+dow  ‚ts >dow  ‚>days 3 + 7 mod ;       ‡Day of week, 0 is Sun
+
+
+ƒpop drop
+-, ‚$2d c, ; /, ‚$2f c, ; :, ‚$3a c, ;
+%% ‡A % sign "%" ‚$25 c, ;
+%A ‡Full weekday name "Thursday"    ‚dow long-day-name str, ;
+%a ‡Abbreviated weekday name "Thu"  ‚dow short-day-name str, ;
+%B ‡Full month name "August"        ‚mon long-mon-name str, ;
+%b %h ‡Abbreviated month name "Aug" ‚mon short-mon-name str, ;
+%C ‡A year divided by 100 and truncated to integer (00-99) "20"
+   ‚year 100 / 100 mod 2digits, ;
+%d ‡Day of the month, zero-padded (01-31) "23" ‚day 2digits, ;
+‡%e ‡Day of the month, space-padded ( 1-31) "23"
+‡%g ‡Week-based year, last two digits (00-99) "01"
+‡%G ‡Week-based year "2001"
+%H ‡An hour in 24h format (00-23) "14" ‚hour 2digits, ;
+%I ‡An hour in 12h format (01-12) "02" ‚hour 12 mod 1+ 2digits, ;
+%j ‡Day of the year (001-366) "235" ‚doy 3 digits, ;
+%M ‡Minute (00-59) "55" ‚min 2digits, ;
+%m ‡Month as a decimal number (01-12) "08" ‚mon 2digits, ;
+%n ‡New-line character "\n" ‚$a c, ;
+%p ‡AM or PM designation "pm"
+   ‚hour 12 < drop if " am" str, ; then " pm" str, ;
+%R ‡24-hour HH:MM time, equivalent to %H:%M "14:55" ‚%H :, %M ;
+%S ‡The second (00-61) "02" ‚sec 2digits, ;
+%r ‡12-hour clock time "02:55:02 pm" ‚%I :, %M :, %S sp, %p ;
+%T %X
+‡ISO 8601 time format (HH:MM:SS), equivalent to %H:%M:%S "14:55:01"
+   ‚%R :, %S ;
+%t ‡Horizontal-tab character "\t" ‚$9 c, ;
+%u ‡ISO 8601 weekday as a number with Monday as 1 (1-7) "4"
+   ‚dow 0if drop 7 then digit, ;
+‡%U ‡Week number with the first Sunday as the first day of week
+   one (00-53) "33"
+‡%V ‡ISO 8601 week number (00-53) "34"
+%w ‡Weekday as a decimal number with Sunday as 0 (0-6) "4"
+   ‚dow digit, ;
+‡%W ‡Week number with the first Monday as the first day of week
+   one (00-53) "34"
+%Y ‡Year "2001" ‚year ndigits, ;
+%c ‡Date and time representation "Thu Aug 23 14:55:02 2001"
+   ‚%a sp, %b sp, %d sp, %T sp, %Y ;
+%F ‡Short YYYY-MM-DD date, equivalent to %Y-%m-%d "2001-08-23"
+   ‚%Y -, %m -, %d ;
+%y ‡Year, last two digits (00-99) "01" ‚year 100 mod 2digits, ;
+%D %x ‡Short MM/DD/YY date, equivalent to %m/%d/%y "08/23/01"
+   ‚%m /, %d /, %y ;
+‡%z ‡ISO 8601 offset from UTC in timezone (1 minute = 1, 1 hour =
+   100).  If timezone cannot be determined, no characters "+0100"
+‡%:z ‡+hh:mm numeric timezone (e.g., -04:00)
+‡%Z ‡Timezone name or abbreviation.  If timezone cannot be
+   determined, no characters "CDT"

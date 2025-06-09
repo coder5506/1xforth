@@ -1,0 +1,92 @@
+#+TITLE: Registers
+
+1xforth primarily targets 64-bit architectures having an abundance of
+registers and makes many of these registers directly available to the
+programmer.
+
+
+* General-purpose registers
+
+To smooth-over architecture differences and also to avoid name
+conflicts, the registers use a Vim-inspired faux-namespace prefix of
+~"~.  The available general-purpose registers are ~"w~, ~"x~, ~"y~,
+~"z~, ~"a~, and ~"b~.
+
+We intend that if the available register set is someday extended, it
+will continue with ~"c~, ~"d~, and so on.
+
+There is no difference between any of the general purpose registers
+and no special meanings assigned to any of them, but when not
+otherwise specified `"a` will be used as the default "address"
+register as in Machine Forth and colorForth.  This is discussed
+further in the <<_macros>> section below.
+
+Read the value of a register by giving its name.  Write to a register
+by using its corresponding update word that appends a ~!~, e.g.,
+~"w!~, ~"x!~, etc.
+
+
+* System registers
+
+1xforth also exposes four system registers
+
+- ~"r~ Top of return stack
+- ~"s~ Second-on-stack
+- ~"t~ Top-of-stack
+- ~"u~ User pointer
+
+Depending on the platform some system registers may be implemented as
+"pseudo" registers, meaning that the programming model is unchanged
+but the implementation may not use a true CPU register.  On x86-64,
+~"r~ and ~"s~ are pseudo-registers.
+
+Note
+
+- ~"s!~ is not implemented, being equivalent to nip
+- ~"t!~ is not implemented, being equivalent to drop
+- ~"u!~ is probably a really bad idea
+
+~"t~ and ~"s~ are equivalent to dup and over, respectively, when used
+outside the macro context described below.
+
+
+* Macros
+
+A large part of the utility of registers comes from their associated
+auto-increment/-decrement memory access words.  Defining these
+operations directly would add hundreds of words to the base
+vocabulary, so they are instead provided by a macro compiler.
+
+All operations are native-endian.  The available macro words are
+
+| ~[~  | Begin compiling a register operation
+| ~]~  | Emit instructions for a register operation
+| ~c@~ | Fetch an 8-bit "character" value
+| ~h@~ | Fetch a 16-bit "halfword" value
+| ~w@~ | Fetch a 32-bit "word" value
+| ~@~  | Fetch a 64-bit value
+| ~c!~ | Store an 8-bit "character" value
+| ~h!~ | Store a 16-bit "halfword" value
+| ~w!~ | Store a 32-bit "word" value
+| ~!~  | Store a 64-bit value (default)
+| ~++~ | Post-increment the register value
+| ~--~ | Pre-decrement the register value
+| ~sx~ | Sign-extend a fetched value
+| ~zx~ | Zero-extend a fetched value (default)
+
+Combined with the register names, these macros enable the programmer
+to define most of the desired operations.  If a register name is not
+supplied, ~"a~ will be used as the default.
+
+For example
+
+- ~[ c@ "a ++ ]~ Read 8-bit value from ~"a~, zero-extend, add 1 to ~"a~
+- ~[ c@ ++ ]~ Same
+- ~[ w@ "b sx -- ]~ Subtract 4 from ~"b~, read 32-bit value from ~"b~, sign-extend
+- ~[ ! "r ]~ Store 64-bit value into address on top of return stack
+
+Should this be too cumbersome, the programmer can define his own macro
+operations.  The compiled code will be the same.
+
+- ~c@a+~ ~[ c@ "a ++ ]~ ~;~
+- ~h!b-~  ~[ h! "b -- ]~ ~;~

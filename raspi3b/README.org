@@ -1,0 +1,40 @@
+#+TITLE: Raspberry Pi 3 Model B
+
+The files in this directory build a bootable sdcard image for the
+Raspberry Pi 3 Model B.
+
+The top-level make targets are
+
+- ~kernel8.img~ or ~all~ (default) a bare-metal Forth
+- ~sdcard~ a bootable SD card image
+
+~make~ will download firmware blobs as necessary from
+https://github.com/raspberrypi/firmware
+
+Build the disk image by typing ~make sdcard~, then copy it.
+
+#+BEGIN_SRC bash
+sudo dd of=/dev/sdX if=sdcard.img bs=4M status=progress
+#+END_SRC
+
+Connect a terminal.
+
+#+BEGIN_SRC bash
+sudo picocom -b 115200 /dev/ttyUSBX
+#+END_SRC
+
+It is possible to run the kernel standalone in emulation.
+
+#+BEGIN_SRC bash
+qemu-system-aarch64 -M raspi3b -kernel kernel8.img -serial stdio
+#+END_SRC
+
+
+* Files
+
+- [[file:GNUmakefile][GNUmakefile]] not portable
+- [[file:board.S][board.S]] bare-metal ~_start~
+- [[file:board.cf][board.cf]] Forth bootstrap
+- [[file:board.ld][board.ld]] linker script
+- [[file:config.txt][config.txt]] firmware configuration
+- [[file:partitions.txt][partitions.txt]] partition definitions

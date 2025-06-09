@@ -1,0 +1,247 @@
+#+TITLE: Glossary
+
+* Core words
+
+Core words are available on all supported platforms.  See
+[[file:registers.org][registers.org]] for more discussion of register words and macros.
+Descriptions begin with a ~*~ to indicate deviations from the
+standard.
+
+| Word         | Stack effect(s)                       | Called        | Description                                       |
+|--------------+---------------------------------------+---------------+---------------------------------------------------|
+| ~!~          | ~x addr --~                           | store         | Write 8-byte value to address                     |
+| ~"a~         | ~-- x~                                |               | Value of ~"a~ [[file:registers.org][register]]                            |
+| ~"a!~        | ~x --~                                |               | Set value of ~"a~ register                        |
+| ~"b~         | ~-- x~                                |               | Value of ~"b~ register                            |
+| ~"b!~        | ~x --~                                |               | Set value of ~"b~ register                        |
+| ~"r~         | ~S: -- x / R: x -- x~                 |               | Top of return stack                               |
+| ~"r!~        | ~S: x1 -- / R: x2 -- x1~              |               | Replace top of return stack                       |
+| ~"s~         | ~x1 x2 -- x1 x2 x1~                   |               | Second-on-stack                                   |
+| ~"t~         | ~x -- x x~                            |               | Top-of-stack                                      |
+| ~"u~         | ~-- x~                                |               | Location of user area                             |
+| ~"u!~        | ~x --~                                |               | Set location of user area                         |
+| ~"w~         | ~-- x~                                |               | Value of ~"w~ register                            |
+| ~"w!~        | ~x --~                                |               | Set value of ~"w~ register                        |
+| ~"x~         | ~-- x~                                |               | Value of ~"x~ register                            |
+| ~"x!~        | ~x --~                                |               | Set value of ~"x~ register                        |
+| ~"y~         | ~-- x~                                |               | Value of ~"y~ register                            |
+| ~"y!~        | ~x --~                                |               | Set value of ~"y~ register                        |
+| ~"z~         | ~-- x~                                |               | Value of ~"z~ register                            |
+| ~"z!~        | ~x --~                                |               | Set value of ~"z~ register                        |
+| ~"~          | ~C: "ccc<quote>" -- / S: -- c-addr u~ |               | Compile quoted string                             |
+| ~#tib~       | ~-- a-addr~                           | num-tib       | Holds number of bytes occupied in ~tib~           |
+| ~'~          | ~"<spaces>name" -- xt~                | tick          | Compilation address of word                       |
+| ~*~          | ~n1 n2 -- n1*n2~                      | star          | Multiply                                          |
+| ~*/~         | ~n1 n2 n3 -- n1*n2/n3~                | star-div      | Ratio using double-precision intermediate result  |
+| ~*/mod~      | ~n1 n2 n3 -- n-rem n-quot~            | star-div-mod  |                                                   |
+| ~+~          | ~n1 n2 -- n1+n2~                      | plus          | Add                                               |
+| ~+!~         | ~n a-addr --~                         | plus-store    | Add ~n~ to the value at ~a-addr~                  |
+| ~++~         | ~--~                                  |               | Compile a post-increment register operation       |
+| ~+if~        | ~x -- x~                              | plus-if       | Execute body when ~x >= 0~                        |
+| ~,~          | ~x --~                                | comma         | Append a cell to the dicitonary                   |
+| ~-~          | ~n1 n2 -- n1-n2~                      | minus         | Subtract                                          |
+| ~--~         | ~--~                                  |               | Compile a pre-decrement register operation        |
+| ~-if~        | ~x -- x~                              | minus-if      | Execute body when ~x < 0~                         |
+| ~.~          | ~n --~                                | dot           | Display top-of-stack                              |
+| ~/~          | ~n1 n2 -- n-quot~                     | div           | Euclidean quotient                                |
+| ~/mod~       | ~n1 n2 -- n-rem n-quot~               | div-mod       |                                                   |
+| ~/string~    | ~c-addr1 u1 n -- c-addr2 u2~          |               | Adjust string                                     |
+| ~0<~         | ~n -- f~                              |               | negative                                          |
+| ~0<=~        | ~n -- f~                              |               | non-positive                                      |
+| ~0<>~        | ~n -- f~                              |               | non-zero                                          |
+| ~0=~         | ~n -- f~                              |               | zero                                              |
+| ~0>~         | ~n -- f~                              |               | positive                                          |
+| ~0>=~        | ~n -- f~                              |               | non-negative                                      |
+| ~0if~        | ~x -- x~                              | zero-if       | Execute body when ~x = 0~                         |
+| ~1+~         | ~n -- n+1~                            | increment     |                                                   |
+| ~1-~         | ~n -- n-1~                            | decrement     |                                                   |
+| ~2*~         | ~n -- n*2~                            | two-star      | Multiply by 2                                     |
+| ~2/~         | ~n -- n/2~                            | two-div       | Divide by 2, preserves sign                       |
+| ~2pop~       | ~S: x1 x2 -- / R: -- x1 x2~           |               | Preserve stack order of double-word items         |
+| ~2push~      | ~S: -- x1 x2 / R: x1 x2 --~           |               |                                                   |
+| ~8*~         | ~n -- n*8~                            | eight-star    | Multiply by 8                                     |
+| ~8+~         | ~n -- n+8~                            | eight-plus    | Add 8                                             |
+| ~8-~         | ~n -- n-8~                            | eight-minus   | Subtract 8                                        |
+| ~8/~         | ~n -- n/8~                            | eight-div     | Divide by 8, preserves sign                       |
+| ~;~          | ~--~                                  | exit          | Exit a definition                                 |
+| ~<~          | ~n1 n2 -- f~                          | less          |                                                   |
+| ~<=~         | ~n1 n2 -- f~                          | not-greater   |                                                   |
+| ~<>~         | ~n1 n2 -- f~                          | not-equal     |                                                   |
+| ~<xp~        |                                       | from-XP       | Map executable pointer to writable pointer        |
+| ~=~          | ~n1 n2 -- f~                          | equal         |                                                   |
+| ~>~          | ~n1 n2 -- f~                          | greater       |                                                   |
+| ~>=~         | ~n1 n2 -- f~                          | not-less      |                                                   |
+| ~>body~      | ~xt -- a-addr~                        | to-body       | Parameter-field address of ~xt~                   |
+| ~>in~        | ~-- a-addr~                           | input-pointer | Holds index of next unparsed input byte           |
+| ~>name~      | ~xt -- nt~                            | to-name       | Move from dictionary entry to wordlist entry      |
+| ~>xp~        |                                       | to-XP         | Map writable pointer to executable pointer        |
+| ~@~          | ~a-addr -- x~                         | fetch         | Read 8-byte value from address                    |
+| ~[~          | ~--~                                  |               | Begin compiling a register operation              |
+| ~]~          | ~--~                                  |               | Emit instructions for a register operation        |
+| ~abort~      | ~--~                                  |               | Clear stacks and return to outer interpreter      |
+| ~abs~        | ~n -- u~                              |               | Absolute value                                    |
+| ~align~      | ~--~                                  |               | Adjust here to a cell boundary                    |
+| ~aligned~    | ~addr -- a-addr~                      |               | Adjust address to a cell boundary                 |
+| ~allot~      | ~n --~                                |               | Reserve space in the dictionary                   |
+| ~and~        | ~n1 n2 -- n1&n2~                      |               | Bitwise and                                       |
+| ~ashift~     | ~n u -- n>>u~                         | A-shift       | Shift right, preserving sign-bit                  |
+| ~base~       | ~-- a-addr~                           |               | Holds current number base                         |
+| ~blk~        | ~-- a-addr~                           |               | Holds number of current input block               |
+| ~block~      | ~u -- addr~                           |               | Address of requested block                        |
+| ~bl~         | ~-- n~                                | blank         | ASCII space character                             |
+| ~buffer~     | ~u -- a-addr~                         |               | Assign  buffer to block                           |
+| ~bye~        | ~--~                                  |               | Exit Forth                                        |
+| ~c!~         | ~c c-addr --~                         | C-store       | Write one byte to address                         |
+| ~c,~         | ~c --~                                | C-comma       | Append one byte to dictionary                     |
+| ~c@~         | ~c-addr -- c~                         | C-fetch       | Read one byte from address, zero-extend           |
+| ~char~       | ~"<spaces>name" -- c~                 |               | First character of next word                      |
+| ~compare~    | ~a1 #1 a2 #2 -- n~                    |               | Lexicographically compare byte strings            |
+| ~compile,~   | ~xt --~                               | compile-comma | Add execution token to the current definition     |
+| ~copy~       | ~u --~                                |               | Assign block number to  buffer                    |
+| ~count~      | ~c-addr1 -- c-addr2 u~                |               | Translate counted string to string and count      |
+| ~create~     | ~C: -- / S: -- a-addr~                |               | Return parameter-field address                    |
+| ~cr~         | ~--~                                  |               | Emit a linefeed character                         |
+| ~decimal~    | ~--~                                  |               | Read and display numbers in base-10               |
+| ~decode~     | ~x1 x2 -- c-addr~                     |               | Decode to counted string                          |
+| ~defer~      | ~--~                                  |               | Compile stub code to call a deferred word         |
+| ~defer!~     | ~xt1 xt2 --~                          | defer-store   | Set ~xt2~ to execute ~xt1~                        |
+| ~defer@~     | ~xt1 -- xt2~                          | defer-fetch   | ~xt1~ is set to execute ~xt2~                     |
+| ~dp~         | ~-- a-addr~                           |               | Holds address of next free byte in dictionary     |
+| ~drop~       | ~x1 x2 -- x1~                         |               | Remove top-of-stack                               |
+| ~dup~        | ~x -- x x~                            | dupe          | Duplicate top-of-stack                            |
+| ~emit~       | ~c --~                                |               | Output one character                              |
+| ~empty-bufs~ | ~--~                                  |               | Unassign all block buffers                        |
+| ~encode~     | ~c-addr u -- x1 x2~                   |               | Represent string as two LSB encoded words         |
+| ~erase~      | ~c-addr u --~                         |               | Fill string with zeros                            |
+| ~execute~    | ~xt -- ..~                            |               | Run code at given address                         |
+| ~expect~     | ~addr n --~                           |               | Receive bytes into memory, update ~span~          |
+| ~fill~       | ~addr u c --~                         |               | Fill string with given byte value                 |
+| ~find~       | ~addr -- xt~                          |               | Lookup word in current wordlist                   |
+| ~flush~      | ~--~                                  |               | Save, then unassign buffers                       |
+| ~for~        |                                       |               | Pre-decrement loop                                |
+| ~forth~      | ~--~                                  |               | Add new words to the ~forth~ wordlist             |
+| ~h!~         | ~h h-addr --~                         | H-store       | Write 2-byte halfword to address                  |
+| ~h@~         | ~h-addr -- h~                         | H-fetch       | Read 2-byte halfword from address, zero-extend    |
+| ~here~       | ~-- c-addr~                           |               | Address of next free byte in dictionary           |
+| ~hex~        | ~--~                                  |               | Read and display numbers in base-16               |
+| ~huffman~    | ~-- w-addr~                           |               | Table of LSB Huffman codes                        |
+| ~if~         | ~x -- x~                              |               | Execute body when ~x <> 0~                        |
+| ~invert~     | ~n --~ \tilde ~n~                     |               | Ones-complement negation                          |
+| ~is~         | ~xt "<spaces>name"~                   |               | Set ~name~ to execute ~xt~                        |
+| ~key~        | ~-- c~                                |               | Read one character from input                     |
+| ~literal~    | ~x --~                                |               | Add to current definition as literal              |
+| ~load~       | ~u --~                                |               | Read from the indicated source block              |
+| ~lshift~     | ~n u -- n<<u~                         | L-shift       | Shift left                                        |
+| ~macro~      | ~--~                                  |               | Add new words to the ~macro~ wordlist             |
+| ~marker~     | ~--~                                  |               | Define a restore point                            |
+| ~max~        | ~n1 n2 -- n-max~                      |               | Maximum                                           |
+| ~min~        | ~n1 n2 -- n-min~                      |               | Minimum                                           |
+| ~mod~        | ~n1 n2 -- n-rem~                      |               | Euclidean remainder                               |
+| ~move~       | ~src dst count --~                    |               | Copy ~count~ bytes from ~src~ to ~dst~            |
+| ~natural~    |                                       |               | Parse an unsigned number                          |
+| ~negate~     | ~n -- -n~                             |               | Twos-complement negation                          |
+| ~next~       |                                       |               |                                                   |
+| ~nip~        | ~x1 x2 -- x2~                         |               | Remove second-on-stack                            |
+| ~nop~        | ~--~                                  | no-op         | Does nothing                                      |
+| ~or~         | ~n1 n2 -- n1~ \vert ~n2~              |               | Bitwise inclusive or                              |
+| ~over~       | ~x1 x2 -- x1 x2 x1~                   |               | Duplicate next-on-stack                           |
+| ~pad~        | ~-- a-addr~                           |               | Reserve space at end of dictionary to read a word |
+| ~pop~        | ~S: -- x / R: x --~                   |               | Take top item off return stack                    |
+| ~push~       | ~S: x -- / R: -- x~                   |               | Put item on top of return stack                   |
+| ~query~      | ~--~                                  |               | Read one line of input into ~tib~                 |
+| ~rshift~     | ~n u -- n>>>u~                        | R-shift       | Shift right, replacing sign-bit with zero         |
+| ~save-bufs~  | ~--~                                  |               | Write updated buffers to disk                     |
+| ~scr~        | ~-- a-addr~                           |               | Holds number of most recently listed block        |
+| ~sliteral~   | ~c-addr u --~                         |               | Add string to current definition as literal       |
+| ~source-id~  | ~-- n~                                |               | 0 denotes stdin, -1 indicates a string            |
+| ~source~     | ~-- c-addr u~                         |               | Current interpreter source                        |
+| ~space~      | ~--~                                  |               | Emit a blank                                      |
+| ~spaces~     | ~n --~                                |               | Emit a number of blanks                           |
+| ~span~       | ~-- a-addr~                           |               | Holds number of bytes read by expect              |
+| ~swap~       | ~x1 x2 -- x2 x1~                      |               | Exchange top-of-stack and second-on-stack         |
+| ~swap-~      | ~x1 x2 -- x2-x1~                      |               | Reverses order of arguments to minus              |
+| ~sx~         | ~--~                                  |               | Compile a sign-extending register operation       |
+| ~then~       | ~--~                                  |               | End of conditional                                |
+| ~thru~       | ~u1 u2 --~                            | through       | Load range of source blocks                       |
+| ~tib~        | ~-- a-addr~                           |               | Address of terminal input buffer                  |
+| ~to~         | ~x "<spaces>name" --~                 |               | Set the value of ~name~                           |
+| ~tuck~       | ~x1 x2 -- x2 x1 x2~                   |               | Copy top-of-stack below second-on-stack           |
+| ~type~       | ~c-addr u --~                         |               | Output a string                                   |
+| ~u+~         | ~n1 n2 n3 -- n1+n3 n2~                | under-plus    | Add to second-on-stack                            |
+| ~u.r~        | ~u n --~                              |               | Display an unsigned number, right-aligned         |
+| ~u.~         | ~u --~                                |               | Display an unsigned number                        |
+| ~up~         | ~-- a-addr~                           | user-pointer  | Holds offset of next free byte in user area       |
+| ~update~     | ~--~                                  |               | Mark current buffer dirty                         |
+| ~user~       | ~--~                                  |               | Define new user variable                          |
+| ~user!~      | ~x #u --~                             | user-store    | Set value of user variable                        |
+| ~user@~      | ~#u -- x~                             | user-fetch    | Value of user variable                            |
+| ~useraddr~   | ~#u -- a-addr~                        |               | Address of user variable                          |
+| ~value~      | ~x --~                                |               | Declare and initialize value                      |
+| ~variable~   | ~x --~                                |               | Declare and initialize variable                   |
+| ~w!~         | ~w w-addr --~                         | W-store       | Write 4-byte word to address                      |
+| ~w@~         | ~w-addr -- w~                         | W-fetch       | Read 4-byte word from address, zero-extend        |
+| ~within~     | ~n1 n2 n3 -- f~                       |               | ~n1~ is in half-open range ~[n2, n3)~             |
+| ~word~       | ~-- addr~                             |               | Counted string holds next word from input         |
+| ~xchg~       | ~x1 a-addr -- x2~                     | exchange      | Swap ~x1~ with value at ~a-addr~                  |
+| ~xor~        | ~n1 n2 -- n1^n2~                      | X-or          | Bitwise exclusive or                              |
+| ~zx~         | ~--~                                  |               | Compile a zero-extending register operation       |
+
+
+* Linux/MacOS words
+
+These words assume the presence of an operating system.
+
+| Word               | Stack effect(s)        | Description                                            |
+|--------------------+------------------------+--------------------------------------------------------|
+| ~argc~             | ~-- u~                 | Number of command-line arguments                       |
+| ~argv~             | ~-- a-addr~            | Array of pointers to command-line arguments            |
+| ~environ~          | ~-- a-addr~            | Array of pointers to environment variables[fn:environ] |
+| ~include-file~     | ~fd --~                | Use ~fd~ as current interpreter source                 |
+| ~included~         | ~c-addr u --~          | Set interpreter source                                 |
+| ~map-fd/private~   | ~fd -- a-addr u~       | Map r/o file-descriptor into r/w memory                |
+| ~map-fd~           | ~fd -- a-addr u~       | Map r/w file-descriptor into memory                    |
+| ~map-file/private~ | ~addr1 u1 -- addr2 u2~ | Map r/o file into r/w memory                           |
+| ~map-file/ro~      | ~addr1 u1 -- addr2 u2~ | Map file into r/o memory                               |
+| ~map-file~         | ~addr1 u1 -- addr2 u2~ | Map r/w file into memory                               |
+| ~map~              | ~u -- a-addr~          | Request memory from operating system                   |
+| ~unmap~            | ~addr u --~            | Return memory to operating system                      |
+| ~use~              | ~c-addr u --~          | Set current block file                                 |
+
+[fn:environ] Overloaded on bare-metal to point to the devicetree.
+
+
+* Conventions
+
+Conventions used in stack-effect comments.  Address-alignment should
+be interpreted as required for inputs and ensured for outputs.  Flags
+are zero or non-zero as inputs and zero or negative-one for outputs.
+
+Not everything needs to follow convention.  Comments are just
+comments.
+
+| Notation      | Convention                                                |
+|---------------+-----------------------------------------------------------|
+| ~".."~        | Describe parsed pattern in following text                 |
+| ~#~           | A count or index                                          |
+| ~#u~          | A non-negative count or index                             |
+| ~'~           | Output value is variation on input value                  |
+| ~1~, ~2~, ~3~ | Distinguish separate values of same type                  |
+| ~C:~          | Compile-time effect on parameter stack                    |
+| ~R:~          | Run-time effect on return stack                           |
+| ~S:~          | Run-time effect on parameter stack                        |
+| ~addr~        | If not qualified, assume natural alignment for other args |
+| ~a-addr~      | Cell "address"-aligned address                            |
+| ~c~           | 8-bit "char" value                                        |
+| ~c-addr~      | 1-byte aligned "char" address                             |
+| ~d~           | 64-bit "doubleword" value                                 |
+| ~d-addr~      | 8-byte aligned "doubleword" address                       |
+| ~f~           | Boolean "flag" value                                      |
+| ~fd~          | File descriptor                                           |
+| ~h~           | 16-bit "halfword" value                                   |
+| ~h-addr~      | 2-byte aligned "halfword" address                         |
+| ~n~           | Signed integer                                            |
+| ~u~           | Unsigned integer                                          |
+| ~w~           | 32-bit "word" value                                       |
+| ~w-addr~      | 4-byte aligned "word" address                             |
+| ~xt~          | "Execution token" is pointer to code                      |
+| ~x~           | Any cell-sized value                                      |

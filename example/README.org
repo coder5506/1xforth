@@ -1,0 +1,3 @@
+#+TITLE: Examples
+
+- euler*.cf A handful of introductory problems from Project Euler

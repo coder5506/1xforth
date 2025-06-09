@@ -1,0 +1,7 @@
+*.bin
+*.dtb
+*.elf
+*.html
+*.img
+.cache/
+boot/

@@ -1,0 +1,39 @@
+‡Copyright 2022,2023 Eric Sessoms / MIT License
+
+‡Terminal support
+
+Layout of termios structure
+c_iflag+  ‚0 ;                   ‡Input mode flags
+c_oflag+  ƒc_iflag+ tcflag_t + ‚; ‡Output mode flags
+c_cflag+  ƒc_oflag+ tcflag_t + ‚; ‡Control mode flags
+c_lflag+  ƒc_cflag+ tcflag_t + ‚; ‡Local mode flags
+c_cc+     ƒc_lflag+ tcflag_t + ‚; ‡Control characters
+c_ispeed+ ƒc_cc+ nccs + ‚;        ‡Input speed
+c_ospeed+ ƒc_ispeed+ speed_t + ‚; ‡Output speed
+/termios  ƒc_ospeed+ speed_t + ‚; ‡Size of termios structure
+
+‡termios(3)
+
+‡Input mode flags
+brkint   ‚$2 ; ‡Break sends sigint
+inpck   ‚$10 ; ‡Enable input parity checking
+istrip  ‚$20 ; ‡Strip off eighth bit
+icrnl  ‚$100 ; ‡Translate carriage return to newline
+ixon   ‚$200 ; ‡Enable output flow control
+
+‡Output mode flags
+opost    ‚$1 ; ‡Enable output processing
+
+‡Local mode flags
+echo     ‚$8 ; ‡Echo input characters
+isig    ‚$80 ; ‡Signals for intr, quit, susp, or dsusp
+icanon ‚$100 ; ‡Enable canonical mode
+iexten ‚$400 ; ‡Enable discard and lnext
+
+‡Control mode flags
+csize  ‚$300 ; ‡Character size mask
+cs8    ‚$300 ; ‡8-bit characters
+
+‡Control characters
+vmin  ‚16 ; ‡Minimum characters for noncanonical read
+vtime ‚17 ; ‡Timeout in deciseconds for noncanonical read

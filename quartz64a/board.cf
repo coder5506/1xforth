@@ -1,0 +1,91 @@
+‡Copyright 2022,2023 Eric Sessoms / MIT License
+
+puts ‚for dup 1+ swap c@ emit next drop ; ƒ' puts is type
+
+uart  ƒ0 value ‡Base register address for current UART
+uart+ ‚uart + ;
+
+ier ‚$4 uart+ ; ‡Interrupt Enable Register
+disable-irqs ‚0 ier c! ;
+
+bit  ‚1 swap lshift ;
+fcr ‚$8 uart+ ; ‡FIFO Control Register
+txsr ƒ2 bit ‚; ‡Transmitter Soft Reset
+rxsr ƒ1 bit ‚; ‡Receiver Soft Reset
+en   ƒ0 bit ‚; ‡FIFO Enable
+enable-fifos ƒtxsr rxsr or en or ‚fcr w! ;
+
+dll ‚$0 uart+ ; ‡Divisor Latch (Low)
+dlh ‚$4 uart+ ; ‡Divisor Latch (High)
+lcr ‚$c uart+ ; ‡Line Control Register
+dlab ƒ7 bit ‚; ‡Divisor Latch Access Bit
+8n1  ‚3 ; ‡8 data bits, no parity, 1 stop bit
+
+uart-clock ‚defer
+mode-x ‚16 / ;
+baud! ‡Set baud rate
+   ‚uart-clock swap / mode-x ‡16 clock-cycles per bit
+   ‚256 /mod dlh c! dll c! ; ‡Split into DLH/DLL
+setup-data
+   ‚tuck ƒdlab ‚or lcr c! ‡With line control
+      ‚baud!
+   lcr c! ;            ‡Release line control
+ƒ8n1 8n1 ƒnop ‚setup-data ;
+
+mcr ‚$10 uart+ ; ‡Modem Control Register
+rts   ƒ1 bit ‚; ‡Request To Send
+dtr   ƒ0 bit ‚; ‡Data Transmit Ready
+enable-data ƒrts dtr or ‚mcr w! ;
+
+lsr ‚$14 uart+ ; ‡Line Status Register
+thre  ƒ5 bit ‚; ‡Transmit Holding Register Empty
+dr    ƒ0 bit ‚; ‡Data Ready
+
+lsr? ‚lsr c@ and 0<> ; ‡Check line status bit
+?thre ƒthre ‚lsr? ; ‡Can write?
+?dr     ƒdr ‚lsr? ; ‡Can read?
+
+wait ‚dup execute drop if drop ; then wait ;
+‡Busy-wait until status check yields true
+
+thr ‚$0 uart+ ; ‡Transmit Holding Register
+rbr ‚$0 uart+ ; ‡Receive Buffer Register
+putc ƒ' ?thre ‚wait thr c! ;
+getc ƒ' ?dr ‚wait rbr c@ ;
+
+init ‡53.6.2 FIFO Mode Transfer Flow (TRM)
+   ‚disable-irqs  1500000 8n1  enable-fifos enable-data ;
+
+uart2 ‚$fe660000 to uart ; ‡Select UART_DBG
+
+‡bits mask shift grf-bitfield
+‡Set both mask and bits in GRF register
+   ‚tuck  16 + lshift push  lshift  pop or ;
+
+grf ‚$fdc60000 ; ‡General Register Files
+gpio7ch ƒ$78 grf + ‚; ‡GPIO7CH iomux control
+c7-uart2dbg-sout ƒ1 7 12 grf-bitfield ‚;
+c6-uart2dbg-sin  ƒ1 3  8 grf-bitfield ‚;
+uart2-iomux ƒc7-uart2dbg-sout c6-uart2dbg-sin or ‚gpio7ch w! ;
+‡Map GPIO pins for UART2
+
+uart2-init ‚uart2-iomux uart2 init ;
+uart2-putc ‚uart2 putc ;
+uart2-getc ‚uart2 getc ;
+
+(uart-clock) ‚24000000 ; ‡Initialized by U-Boot to 24MHz
+ƒ' (uart-clock) is uart-clock
+
+key'  ‚key cr>lf ‚dup $d = drop if drop $a then ;
+emit' ‚dup $a = drop if $d emit then emit ;
+echo  ‚key' emit' echo ;
+
+read-line ‚?ok 0 #tib ! 131 >tib +yellow
+loop ‚?done drop if submit ; then keypress loop ;
+
+main ‚." Ain't no thing like me, except me!" cr ;
+
+ƒuart2-init
+' uart2-putc is emit
+' uart2-getc is key
+' read-line  is query

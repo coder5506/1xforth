@@ -1,0 +1,17 @@
+#!/usr/bin/env 1x
+
+There exists exactly one Pythagorean triplet for which a+b+c = 1000.
+Find the product abc.
+
+áa b Å>c ác  Çtuck + 1000 swap-  tuck >= drop if drop 0 then ;
+án Åsq án^2  Çdup * ;
+áa b c Åtriplet? áf  Çsq push sq swap sq + pop = ;
+
+áa b Åinner áprod
+   Çover over >c 0if drop drop drop 0 ; then push
+      over over "r triplet? drop if pop * * ; then
+   pop drop 1+ inner ;
+
+áa Åouter áprod  Çdup dup 1+ inner if nip ; then drop 1+ outer ;
+
+É1 outer . cr  á31875000

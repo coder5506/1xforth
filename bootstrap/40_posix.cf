@@ -1,0 +1,127 @@
+áCopyright 2022,2023 Eric Sessoms / MIT License
+
+áPOSIX.1 system calls
+á====================
+áfd Åclose árc Ésys_close Ç1/syscall ; áDelete descriptor
+ástatus Åexit Ésys_exit Ç1/syscall ; áTerminate calling process
+áfd request arg Åioctl árc Ésys_ioctl Ç3/syscall ; áControl device
+
+Åseek_set Ç0 ; Åseek_cur Ç1 ; Åseek_end Ç2 ;
+áfd offset whence Ålseek ápos Ésys_lseek Ç3/syscall ;
+áReposition read/write file offset
+
+Åprot_read Ç1 ; Åprot_write Ç2 ; Åprot_exec Ç4 ;
+Åmap_shared Ç1 ; Åmap_private Ç2 ;
+áaddr len prot flags fd off Åmmap áaddr Ésys_mmap Ç6/syscall ;
+áaddr len prot Åmprotect árc Ésys_mprotect Ç3/syscall ;
+áaddr len Åmunmap árc Ésys_munmap Ç2/syscall ;
+
+Åms_async Ç1 ; Åms_invalidate Ç2 ;
+áaddr length flags Åmsync Ésys_msync Ç3/syscall ;
+áSynchronize mapped region
+
+Åo_rdonly Ç0 ; Åo_wronly Ç1 ; Åo_rdwr Ç2 ;
+ápath flags mode Åopen áfd Çpush push Éat_fdcwd Çswap pop pop
+ádirfd path flags mode Åopenat áfd Ésys_openat Ç4/syscall ;
+áOpen or create file
+
+áfd buf count Åread  ácount Ésys_read  Ç3/syscall ; áRead input
+áfd buf count Åwrite ácount Ésys_write Ç3/syscall ; áWrite output
+
+
+áWrappers around read/write
+á--------------------------
+Å3dup Çpush over over "r swap push swap pop pop ; áb/c C
+
+Åeintr Ç-4 ;
+Å(/eintr) Çpush Åloop Ç3dup "r execute
+   dup Éeintr Ç= drop 0if pop drop ; then loop ;
+áfd buf count xt Å/eintr ácount' Ç(/eintr) nip nip nip ;
+áRetry while EINTR
+
+áRead from / write to slow device
+áfd buf count Åread/eintr  ácount' É' read  Ç/eintr ;
+áfd buf count Åwrite/eintr ácount' É' write Ç/eintr ;
+
+Å(/all) Çpush Åloop Ç0if pop drop ; then 3dup "r execute
+   dup 0<= drop if drop pop drop ; then /string loop ;
+áfd buf count xt Å/all ácount'
+   Çpush 3dup pop (/all) drop push drop drop nip pop swap- ;
+
+áRetry until done or error
+áfd buf count Åread/all  ácount' É' read/eintr  Ç/all ;
+áfd buf count Åwrite/all ácount' É' write/eintr Ç/all ;
+
+Å2dup Çover over ;
+áfd buf count Åread-buf ábuf count  áAll or nothing
+   Ç2dup 2push read/all "r = pop and pop swap ;
+
+
+áBSD sockets
+á-----------
+ásockfd addr addrlen Åconnect árc Ésys_connect Ç3/syscall ;
+áInitiate socket connection
+áfamily type protocol Åsocket áfd Ésys_socket Ç3/syscall ;
+áCreate endpoint for communication
+
+Åaf_unix Ç1 ; Åaf_inet Ç2 ; Åsock_stream Ç1 ; Åloopback Ç$7f000001 ;
+
+Åunix-socket áfd Éaf_unix Çnop
+áfamily Åstream-socket áfd Ésock_stream Ç0 socket ;
+Åinet-socket áfd Éaf_inet Çstream-socket ;
+
+Å2bswap Çdup $ff and 8 lshift swap 8 rshift $ff and or ;
+Å4bswap áByte-reverse 4-byte value
+   Çdup $ffff and 2bswap 16 lshift
+   swap 16 rshift $ffff and 2bswap or ;
+Åbe/h, Ç2bswap Åh, Çhere h! 2 allot ;
+Åbe/w, Ç4bswap Åw, Çhere w! 4 allot ;
+
+Å(str,) Çhere swap dup allot move ;
+Åmax_path Ç104 ;
+Å(>sockaddr_un) Émax_path 1- Çmin
+   align here push 0 c, Éaf_unix Çc, (str,) 0 c, pop here over - ;
+ác-addr # Å>sockaddr_un áaddr u É' (>sockaddr_un) Çexecute ;
+áunix(7) length includes terminating NUL
+
+Å(>sockaddr_in) Çalign here push
+   Éaf_inet Çh, swap be/h, be/w, 0 , pop here over - ;
+áport inet Å>sockaddr_in áuaddr u É' (>sockaddr_in) Çexecute ;
+
+áfd c-addr # Åunix-connect árc Ç>sockaddr_un connect ;
+áfd port inet Åinet-connect árc Ç>sockaddr_in connect ;
+
+ác-addr # Åunix-dial áfd
+   Ç2push unix-socket dup 2pop unix-connect drop if close then ;
+áport inet Åinet-dial áfd
+   Ç2push inet-socket dup 2pop inet-connect drop if close then ;
+
+
+áTerminal support
+á================
+Åhere/h áh-addr Çhere
+ác-addr Åhalign áh-addr  áAlign to 2-byte halfword boundary
+   Ç1+ -2 and ;
+áfd Åisatty áf Étiocgwinsz Çhere/h ioctl 0= ;
+áfd is open file descriptor referring to terminal
+
+áOptional actions for tcsetattr
+Åtcsanow   Ç0 ; áMake change immediately
+Åtcsaflush Ç2 ; áWait for output and discard unread input
+
+áfd w-addr Åtcgetattr áf Étcgets Çswap ioctl 0= ;
+áGet parameters for fd into termios structure
+
+áfd w-addr Å(tcsetattr) áf Étcsets Ç+ swap ioctl 0= ;
+áSet parameters for fd from the termios structure
+
+áOptional forms for (tcsetattr)
+áfd w-addr Åtcsetattr  áf Étcsanow   Ç(tcsetattr) ;
+áfd w-addr Åtcsetattrf áf Étcsaflush Ç(tcsetattr) ; áFlush
+
+áAccess individual fields of termios structure
+Å>c_iflag Éc_iflag+ Ç+ ;
+Å>c_oflag Éc_oflag+ Ç+ ;
+Å>c_cflag Éc_cflag+ Ç+ ;
+Å>c_lflag Éc_lflag+ Ç+ ;
+Å>c_cc    Éc_cc+ Ç+ ;

@@ -1,0 +1,10 @@
+#!/usr/bin/env 1x
+
+What is the smallest positive number that is evenly divisible by
+all of the numbers from 1 to 20?
+
+Ågcd Çtuck mod 0if drop ; then gcd ;
+Ålcm Çover over gcd / * ;
+Åloop Çfor "r 1+ lcm next ;
+
+É1 20 loop . cr  á232792560

@@ -1,0 +1,11 @@
+#+TITLE: Libraries
+
+This directory collects potentially useful bits of code.  The files
+here are not meant to be ~included~ directly in a program.  Rather,
+they are intended to serve as reference material.
+
+- [[file:dtb.cf][dtb.cf]] Devicetree blobs
+- [[file:fat.cf][fat.cf]] FAT filesystem
+- [[file:localtime.cf][localtime.cf]] Dates, times, timezones, formatting and parsing
+- [[file:md5.cf][md5.cf]] MD5 message digest algorithm
+- [[file:str.cf][str.cf]] Various string utilities

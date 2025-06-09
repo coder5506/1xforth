@@ -1,0 +1,126 @@
+‡Copyright 2022,2023 Eric Sessoms / MIT License
+
+‡Tools for navigating a FAT32 filesystem
+‡See also https://wiki.osdev.org/FAT
+
+h@' ‚dup c@ swap 1+  c@  8 lshift or ;
+‡Read un-aligned halfword.  Can be necessary on ARM before the
+cache has been initialized.
+w@' ‚dup h@ swap 2 + h@ 16 lshift or ; ‡Read un-aligned word
+u.c ‚2 u.hex ‚base @ push hex u.r pop base ! ;
+u.h ‚4 u.hex ;
+u.w ‚8 u.hex ;
+
+
+‡Master Boot Record
+magic? ‚$1fe + h@ $aa55 = ; ‡Look for boot record signature
+part+ ‚$10 * $1be + + ;
+‡Note that partition entries are not 4-byte aligned relative to
+the MBR itself.
+part.lba ‚part+  8 + w@' ; ‡Relative offset to start of partition
+part.len ‚part+ 12 + w@' ; ‡Number of sectors
+>part ‚over swap part.lba 512 * + ; ‡Move to partition
+
+peek-mbr
+   ‚dup magic? drop 0if drop ." invalid bootsector" ; then
+   dup ." start" 0 part.lba u.w cr
+       ." len"   0 part.len u.w cr ;
+
+
+‡BIOS Parameter Block (in Volume Boot Record)
+bytspersec ‚11 + h@' ; ‡Bytes per sector
+secperclus ‚13 + c@  ; ‡Sectors per cluster
+‡Cluster is smallest unit of allocation.
+rsvdseccnt ‚14 + h@  ; ‡Number of reserved sectors
+‡Reserved sectors include the BPB, backup, FSInfo, and copy
+(sector #7).  Align data area (cluster #2) to cluster size.
+numfats    ‚16 + c@  ; ‡Count of FATs
+‡FATs follow reserved area.
+hiddsec    ‚28 + w@' ; ‡Count of hidden sectors
+‡Hidden sectors preceed the partition on the volume.
+totsec32   ‚32 + w@  ; ‡Total count of sectors
+fatsz32    ‚36 + w@  ; ‡Count of sectors in one FAT
+‡Clusters count from 2 following the FATs.
+extflags   ‚40 + h@  ; ‡Flags define FAT mirroring
+   ‡bit 7 is 1 => active FAT in bits 0-3
+   ‡bit 7 is 0 => mirror to all FATS
+rootclus   ‚44 + h@  ; ‡First cluster of root directory
+‡Root directory typically starts in cluster #2, the first two FAT
+entries being reserved.
+fsinfo     ‚48 + h@  ; ‡Location of FSInfo in reserved area
+bkbootsec  ‚50 + h@  ; ‡Location of backup boot sector
+
+‡File System Information
+free_count ‚488 + w@ ; ‡Last known free cluster count
+nxt_free   ‚492 + w@ ; ‡Number of first available cluster
+
+peek-bpb
+   ‚dup magic? drop 0if drop ." invalid boot record" ; then
+   dup ." bytes per sector"     bytspersec u.h cr
+   dup ." sectors pers cluster" secperclus u.c cr
+   dup ." reserved sectors"     rsvdseccnt u.h cr
+   dup ." num FATs"             numfats    u.h cr
+   dup ." hidden sectors"       hiddsec    u.w cr
+   dup ." large sector count"   totsec32   u.w cr
+   dup ." sectors per FAT(32)"  fatsz32    u.w cr
+   dup ." flags"                extflags   u.h cr
+   dup ." root cluster"         rootclus   u.h cr
+   dup ." fsinfo"               fsinfo     u.h cr
+       ." backup"               bkbootsec  u.h cr ;
+
+
+‡File Allocation Table
+entry ‚4 * bytspersec /mod ;
+
+
+‡Directory Structure
+name+ ‚0 + ; ‡8.3 short name
+   ‡$e5 is free
+   ‡$00 is free and all following are free
+attr ‚11 + c@ ; ‡Attribute flags
+   ‡read_only  1 ;
+   ‡hidden     2 ;
+   ‡system     4 ;
+   ‡volume_id  8 ; Entry contains volume label
+   ‡directory 16 ;
+   ‡archive   32 ; Dirty
+   ‡long_name 31 ; VFAT
+crttimetenth ‚13 + c@ ; ‡[0, 200) tenths of a second
+crttime      ‚14 + h@ ; ‡Creation time, 2 second granularity
+   ‡bits 11..15 hours     [0, 23]
+   ‡bits  5..10 minutes   [0, 59]
+   ‡bits  0.. 4 seconds/2 [0, 29]
+crtdate      ‚16 + h@ ; ‡Creation date
+   ‡bits  9..15 years since 1980 [0, 127]
+   ‡bits  5.. 8 months [1, 12]
+   ‡bits  0.. 4 day of month [1, 31]
+lstaccdate   ‚18 + h@ ; ‡Last access date
+fstclushi    ‚20 + h@ ; ‡High 16-bits of # of first data cluster
+wrttime      ‚22 + h@ ; ‡Last modified time
+wrtdate      ‚24 + h@ ; ‡Last modified date
+fstcluslo    ‚26 + h@ ; ‡Low 16-bits of # of first data cluster
+filesize     ‚28 + w@ ; ‡Total file size in bytes
+‡Size of directory is determined only by allocated clusters.
+
+fstclus ‚fstclushi 16 lshift fstcluslo or ;
+‡Number of first data cluster
+
+ror ‚dup 2/ swap 1 and 7 lshift or ;
+checksum ‡ROR and accumulate
+   ‚name+ 0 11 for push dup 1+ swap c@ pop ror or next nip ;
+
+
+‡Long File Name
+ord ‚c@ ; ‡Stored in reverse order
+name1+   ‚1+ ; ‡10 bytes, chars  1 through  5
+‡Names are UTF-16LE, NUL-terminated, padded with $ffff, limited
+to 255 chars total.  (The specification says "unicode", which
+probably meant UCS-2 at the time.)
+chksum ‚13 + c@ ; ‡Derived from short name
+name2+ ‚14 + ; ‡12 bytes, chars  6 through 11
+name3+ ‚28 + ;  ‡4 bytes, chars 12 and 13
+
+
+ƒ" raspi3b/sdcard.img" map-file/ro drop sector ƒvalue
+ƒsector peek-mbr
+sector 0 >part peek-bpb

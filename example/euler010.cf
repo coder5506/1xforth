@@ -1,0 +1,29 @@
+#!/usr/bin/env 1x
+
+Find the sum of all the primes below two million.
+
+Åcells  Ç8* ;
+Åsize  Ç1000 ;
+Åprimes   Écreate size cells allot
+2 primes !
+Ånum-primes  É1 value
+
+Åidx-prime  Çcells primes + ;
+Åget-prime  Çidx-prime @ ;
+Åset-prime  Çidx-prime ! ;
+Åadd-prime  Çnum-primes set-prime num-primes 1+ to num-primes ;
+Årecord-prime  Çnum-primes Ésize Ç< drop if add-prime ; then drop ;
+
+Åloop
+   Çover over get-prime
+   over over dup * < drop if drop drop drop drop -1 ; then
+   mod drop 0if drop drop 0 ; then
+   1+ loop ;
+Åprime?  Ç0 loop ;
+
+Åloop
+   Çdup 2000000 >= drop if drop ; then
+      dup prime? drop if dup record-prime dup u+ then
+   2 + loop ;
+
+É2 3 loop . cr  á142913828922

@@ -1,0 +1,29 @@
+#!/usr/bin/env 1x
+
+What is the 10,001st prime number?
+
+Åcells Ç8* ;
+Åsize Ç100 ;
+Åprimes Écreate size cells allot
+   2 primes !
+Å#primes É1 value
+
+Å?size Ç#primes Ésize Ç< ;
+Åcount Ç#primes 1+ to #primes ;
+Åprime Çcells Éprimes Ç+ ;
+Åadd Ç#primes prime ! ;
+Åqadd Ç?size drop if add ; then drop ;
+Årecord Çqadd count ;
+
+Åindivisible? Çprime @ dup * < ;
+Ådivisible? Çprime @ mod 0= ;
+Åprime? Ç0 Åloop
+   Çover over indivisible? drop if drop drop -1 ; then
+   over over divisible?   drop if drop drop  0 ; then
+   1+ loop ;
+Åqrecord Çdup prime? drop if record ; then drop ;
+
+Å?found Ç10001 #primes = ;
+Åsearch Çdup qrecord ?found drop if ; then 2 + search ;
+
+É3 search . cr  á104743

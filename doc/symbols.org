@@ -1,0 +1,237 @@
+#+TITLE: Symbols
+
+Forth leans toward short identifiers with no namespacing and
+compensates by making loosely-conventional use of ASCII symbols.  This
+document attempts to describe those conventions as they are found in
+1xforth.  Symbols in Forth are not sigils, having no predefined
+meaning.
+
+Leo Brodie put together a similar list for [[http://forth.org/forth_style.txt][pre-ANS Forth]] and Greg
+Bailey documents how symbols are used in [[https://www.greenarraychips.com/home/documents/greg/cf-style.htm][arrayForth]].
+
+Symbols are listed below in ASCII order.
+
+While fully-symbolic words (e.g., ~+!~ or ~*/~) are occassionally
+seen, none outside the standard are widely adopted as idioms.
+
+
+~!~ "store" ::
+- Standalone ~!~ is the "store" operator.
+- Generally used with the sense of "store".
+- As a prefix
+  - May mean "restore" a previously saved value ~!cursor~
+  - May mean "store through" as an indirection ~!r~
+- As a suffix
+  - May indicate a type of store operation ~c!~
+  - May mean "store into" or set a value ~"w!~
+
+~"~ "quote" ::
+- Standalone ~"~ parses a string.
+- As a suffix indicates that a string follows ~format"~
+- As a prefix in 1xforth marks the register namespace e.g., ~"a~ ~"b~
+
+~#~ "number" or "sharp" ::
+- Generally refers to a count.
+- As a prefix
+  - Indicates the total "number" of items ~#widgets~
+  - Denotes an explicitly decimal literal ~#16~
+- As a suffix indicates the current index ~widget#~
+
+~$~ "dollar" ::
+- Used as a prefix to indicate hexadecmial notation
+  - In numeric literals ~$10~
+  - In strings ~$" c0defee1"~
+
+~%~ "percent" ::
+- Most commonly just means percentage.
+- Sometimes used as a prefix, suffix, or both, to mark a private
+  identifier ~%private%~
+
+~&~ "ampersand" ::
+- Conventionally means "and" and may be found as a prefix, suffix, or
+  infix ~&also~ ~this&that~
+
+~'~ "tick" (prefix) or "prime" (suffix) ::
+- As a prefix ("tick"), may indicate an address.  Usually, a variable
+  that contains an address ~'buffer~
+- As a suffix ("prime") usually means an alternative or local override
+  ~cr'~
+
+~(~ "left paren" or "paren" ::
+- Not used as a standalone operator in 1xforth.
+- Most often paired with ~)~ to name an internal form or primitive, or
+  the runtime part of a word ~(literal)~
+
+~)~ "right paren" ::
+- Standalone ~)~ is used in the assembler to indicate indirection.
+- Often paired with ~(~ to mark a runtime primitive.
+
+~*~ "star" ::
+- Standalone ~*~ is the multiplication operator.
+- Generally implies some sort of multiplication.
+- As a prefix indicates that a word takes scaled input ~*cells~
+- As a suffix indicates a type of multiplication ~f*~
+
+~+~ "plus" ::
+- Standalone ~+~ is the addition operator.
+- Generally implies some sort of addition.
+- As a prefix
+  - May indicate a word takes relative input ~+cells~ (N.B., plural)
+  - May mean "advance to next" ~+widget~ (N.B., singular)
+  - Sometimes used in the sense of "enable" or "on" ~+bright~
+- As a suffix
+  - May indicate a type of addition ~f+~
+  - May denote the size of an offset in bytes.
+
+~,~ "comma" ::
+- Standalone ~,~ appends a word to the dictionary.
+- As a suffix
+  - Nearly always means "add to dictionary".
+  - May sometimes be found to mean "append to sequence" or "write to
+    stream".
+
+~-~ "dash" or "not" ::
+- Standalone ~-~ is the subtraction operator.
+- Generally implies some sort of subtraction.
+- As a prefix
+  - May indicate a word takes relative input ~-cells~ (N.B., plural)
+  - May mean "move to previous" ~-widget~ (N.B., singular)
+  - Sometimes used in the sense of "disable" or "off" ~-bright~
+- As a suffix may indicate a type of subtraction ~f-~
+- Frequently found infix as a word separator ~say-hello~
+
+~.~ "dot" ::
+- Standalone ~.~ is the print operator.
+- Generally implies some sort of output or display.
+- Used as a prefix to mean "print item" ~.variable~
+- Used as a suffix to mean "print number" ~u.~
+  - Used infix to mean variation of the suffixed operation ~u.r~
+
+~/~ "slash" or "up" ::
+- Standalone ~/~ is the division operator.
+- As a prefix
+  - May mean a variation on division ~/mod~
+  - May mean "per" as in "size per item" ~/size~
+  - May indicate "upward" ~/line~
+  - Sometimes used to mean "end" ~/record~
+- As a suffix indicates division of some non-integral type ~f/~
+- Together with ~*~ indicates the scaling operator ~*/~ ~*/mod~
+- Sometimes found infix as a faux-namespacing operator.
+
+~0~ digit 0 ::
+- Can be found as a prefix to mean "initialize" ~0items~
+
+~:~ "colon" ::
+- Standalone ~:~ is not used in 1xforth.
+- As a prefix, may indicate a defining word ~:record~
+- May mean "start" when used as a suffix and paired with a later
+  prefix ~;~ marking the end ~x:~ ...  ~;x~
+
+~;~ "semicolon" ::
+- Standalone ~;~ means "exit" or "return".
+- May mean "end" when used as a prefix and paired with an earlier
+  suffix ~:~ marking the start ~x:~ ...  ~;x~
+
+~<~ "less than" or "left dart" ::
+- Standalone ~<~ is the less-than operator.
+- As a suffix
+  - May indicate a relative comparison ~0<~
+  - May indicate a typed comparison ~f<~
+  - Otherwise usually means "backward", "left", or sometimes "down"
+    ~delete<~ "delete backward"
+- As a prefix has a general meaning of "from"
+  - ~<type~ "convert from type"
+  - ~<device~ "read from device"
+
+~=~ "equals" ::
+- As a suffix
+  - May indicate relative comparison ~0=~
+  - May indicate typed comparison ~f=~
+  - May mean "goto", "at", or "here" ~end=~ "goto end"
+
+~>~ "greater than" or "right dart" ::
+- Standalone ~>~ is the greater-than operator.
+- As a suffix
+  - May indicate a relative comparison ~0>~
+  - May indicate a typed comparison ~f>~
+  - Otherwise likely means "forward", "right", or sometimes "up"
+    ~delete>~ "delete forward"
+- As a prefix
+  - Has a general sense of "to"
+    - ~>type~ "convert to type"
+    - ~>device~ "write to device"
+  - Sometimes used to mean a "pointer to" ~>in~
+  - Sometimes used to convert a pointer to a structure into a pointer
+    to a structure member.
+- Used infix to indicate conversion or movement, preferred over the
+  reverse direction ~this>that~
+- N.B., it is more common to see paired "to" and "from" operators than
+  to see bi-directional conversion operators, primarily because this
+  yields shorter words:
+  - Prefer ~>that~ ~<that~ over ~this>that~ ~that>this~
+
+~?~ "question" or "query" ::
+- Generally indicates a boolean value.
+- As a suffix, is usually a test that consumes one or more stack
+  arguments ~even?~
+- As a prefix
+  - May be used to name a flag ~?done~
+  - May be an environmental query that does not consume stack
+    arguments ~?ready~
+  - Sometimes denotes conditional operation (i.e., "may" or "maybe")
+    but prefer a prefixed "q" ~?move~
+  - Sometimes indicates a short-circuit operator ~?continue~
+
+~@~ "fetch" ::
+- Standalone ~@~ is the "fetch" operator.
+- Generally used to mean "fetch".
+- As a prefix
+  - May mean to preserve a value for later restore ~@cursor~
+  - Often means "fetch through" as an indirection ~@r~
+- As a suffix
+  - May indicate a type of fetch operation ~c@~
+  - May mean "fetch from" or retrieve a value.
+
+~[~ "left bracket" or "bracket" ::
+- Standalone ~[~ is the start of a register or addressing operation in
+  1xforth.
+
+~\~ "backslash", "under", "down", or "skip" ::
+- Sometimes used as a prefix to mean "downward" ~\line~
+
+~]~ "right bracket" ::
+- Marks the end of a register or addressing operation in 1xforth.
+
+~^~ "caret" ::
+- Commonly means "escape" or "control", as in terminal codes.
+- Sometimes used to denote a pointer or indirection, though less often
+  than either ~>~ or ~'~
+
+~_~ "underscore" ::
+- Rarely used as a word separator ~why_though?~
+
+~`~ "grave accent" ::
+- No conventional meaning in Forth.
+
+~q~ lowercase q ::
+- Sometimes used as a prefix to mean "qualified" or conditional
+  execution ~qdup~
+
+~s~ lowercase s ::
+- Frequently used as a suffix meaning "plural", as in the name of an
+  array ~widgets~
+
+~{~ "left brace" ::
+- Used as a suffix meaning "open", usually paired with a later prefix
+  ~}~ meaning "close" ~file{~ ...  ~}file~
+
+~|~ "bar" ::
+- Conventionally means "or" and may be found prefix, suffix, or infix
+  ~here|there~
+
+~}~ "right brace" ::
+- Used as a prefix meaning "close", usually paired with an earlier
+  suffix ~{~ meaning "open" ~file{~ ...  ~}file~
+
+~~~ "tilde" ::
+- As a prefix, usually indicates logical negation ~~done?~
